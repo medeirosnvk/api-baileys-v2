@@ -1,7 +1,7 @@
-import { Router } from 'express';
-import multer from 'multer';
-import { WhatsAppController } from '../controllers/whatsappControllers';
-import { WhatsAppService } from '../services/whatsappServices';
+import { Router } from "express";
+import multer from "multer";
+import { WhatsAppController } from "../controllers/whatsappControllers";
+import { WhatsAppService } from "../services/whatsappServices";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -11,14 +11,37 @@ const whatsappService = new WhatsAppService();
 const whatsappController = new WhatsAppController(whatsappService);
 
 // Rotas
-router.post('/create/:connectionId', whatsappController.createConnection.bind(whatsappController));
-router.get('/connections', whatsappController.getConnections.bind(whatsappController));
-router.get('/connections/status/:connectionId', whatsappController.getConnectionStatus.bind(whatsappController));
-router.delete('/connection/delete/:connectionId', whatsappController.removeConnection.bind(whatsappController));
-router.get('/connections/qrcode/:connectionId', whatsappController.getQRCode.bind(whatsappController));
-router.post('/send/text', whatsappController.sendMessage.bind(whatsappController));
-router.post('/send/media', whatsappController.sendMedia.bind(whatsappController));
-router.post('/send/base64', whatsappController.sendMediaBase64.bind(whatsappController));
-
+router.post(
+  "/instance/create",
+  whatsappController.createConnection.bind(whatsappController)
+);
+router.get(
+  "/instance/fetchInstances",
+  whatsappController.getConnections.bind(whatsappController)
+);
+router.get(
+  "/instance/connectionState/:instanceName",
+  whatsappController.getConnectionStatus.bind(whatsappController)
+);
+router.delete(
+  "/instance/logout/:instanceName",
+  whatsappController.removeConnection.bind(whatsappController)
+);
+router.get(
+  "/instance/connect/image/:instanceName",
+  whatsappController.getQRCode.bind(whatsappController)
+);
+router.post(
+  "/message/sendText/:instanceName",
+  whatsappController.sendMessage.bind(whatsappController)
+);
+router.post(
+  "/message/sendMedia/:instanceName",
+  whatsappController.sendMedia.bind(whatsappController)
+);
+router.post(
+  "/message/sendBase64/:instanceName",
+  whatsappController.sendMediaBase64.bind(whatsappController)
+);
 
 export default router;
