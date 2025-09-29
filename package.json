@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "description": "WhatsApp API using Baileys",
   "main": "dist/server.js",
+  "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "ts-node src/server.ts",
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+    "start": "node --loader ts-node/esm src/server.ts",
+    "dev": "ts-node-dev --loader ts-node/esm --respawn --transpile-only src/server.ts"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.3",
