@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "WhatsApp API using Baileys",
   "main": "dist/server.js",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
