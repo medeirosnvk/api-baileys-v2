@@ -7,7 +7,7 @@ import {
 } from "@whiskeysockets/baileys";
 import pino from "pino";
 import { Boom } from "@hapi/boom";
-import * as fs from "fs-extra";
+import fs from "fs-extra"; // ✅ funciona
 import * as path from "path";
 import * as QRCode from "qrcode";
 import { Logger } from "../utils/logger.js";
