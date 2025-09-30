@@ -442,6 +442,8 @@ export class WhatsAppService {
 
   async getQRCodeImage(connectionId: string): Promise<Buffer | null> {
     try {
+      const __dirname = path.dirname(__filename);
+
       const qrPath = path.join(
         __dirname,
         "../../temp",
