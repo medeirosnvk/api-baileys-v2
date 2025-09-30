@@ -1,9 +1,10 @@
 import express from "express";
 import cors from "cors";
-import * as fs from "fs-extra";
-import * as path from "path";
+import fs from "fs-extra";
+import path from "path";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
 import { Logger } from "./utils/logger.js";
+import { fileURLToPath } from "url";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,6 +13,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Ensure temp directory exists
 const tempDir = path.join(__dirname, "../temp");
