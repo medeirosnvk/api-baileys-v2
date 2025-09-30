@@ -149,7 +149,7 @@ export class WhatsAppService {
 
       try {
         const qrDir = path.resolve(process.cwd(), "temp");
-        const qrPath = path.join(qrDir, `${connectionId}_qr.png`);
+        const qrPath = path.join(qrDir, `${connectionId}.png`);
         await fs.ensureDir(qrDir);
         await QRCode.toFile(qrPath, qr);
         Logger.success(`QR Code salvo em: ${qrPath}`);
