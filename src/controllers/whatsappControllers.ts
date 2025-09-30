@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { WhatsAppService } from "../services/whatsappServices";
-import { Logger } from "../utils/logger";
+import { WhatsAppService } from "../services/whatsappServices.js";
+import { Logger } from "../utils/logger.js";
 
 export class WhatsAppController {
   constructor(private whatsappService: WhatsAppService) {}
