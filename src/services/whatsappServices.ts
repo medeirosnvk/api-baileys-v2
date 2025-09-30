@@ -363,9 +363,10 @@ export class WhatsAppService {
   async sendMediaMessageBase64(
     connectionId: string,
     to: string,
-    type: "image" | "document" | "video" | "audio",
-    caption?: string,
-    mediaBase64?: string
+    base64: string,
+    fileName: string,
+    mimeType: "image" | "document" | "video" | "audio",
+    caption: string
   ): Promise<boolean> {
     try {
       const socket = this.connections.get(connectionId);
@@ -383,11 +384,11 @@ export class WhatsAppService {
       const jid = to.includes("@") ? to : `${to}@s.whatsapp.net`;
 
       // Converte base64 em Buffer
-      const mediaBuffer = Buffer.from(mediaBase64!, "base64");
+      const mediaBuffer = Buffer.from(base64!, "base64");
 
       let messageContent: any;
 
-      switch (type) {
+      switch (mimeType) {
         case "image":
           messageContent = {
             image: mediaBuffer,
@@ -420,7 +421,7 @@ export class WhatsAppService {
       await socket.sendMessage(jid, messageContent);
 
       Logger.success(
-        `Mídia ${type} (base64) enviada para ${to} via ${connectionId}`
+        `Mídia ${mimeType} (base64) enviada para ${to} via ${connectionId}`
       );
       return true;
     } catch (error) {

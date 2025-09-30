@@ -202,9 +202,10 @@ export class WhatsAppController {
       await this.whatsappService.sendMediaMessageBase64(
         instanceName,
         number,
-        mediaMessage.mediatype,
-        mediaMessage.caption,
-        mediaMessage.media
+        mediaMessage.base64,
+        mediaMessage.fileName,
+        mediaMessage.mimeType,
+        mediaMessage.caption
       );
 
       res.json({
