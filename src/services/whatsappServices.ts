@@ -7,12 +7,13 @@ import {
 } from "@whiskeysockets/baileys";
 import pino from "pino";
 import { Boom } from "@hapi/boom";
-import fs from "fs-extra"; // ✅ funciona
-import * as path from "path";
 import * as QRCode from "qrcode";
 import { Logger } from "../utils/logger.js";
 import qrcode from "qrcode-terminal";
 import { ConnectionStatus } from "../types/index.js";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs-extra";
 
 export class WhatsAppService {
   private connections = new Map<string, WASocket>();
@@ -442,6 +443,7 @@ export class WhatsAppService {
 
   async getQRCodeImage(connectionId: string): Promise<Buffer | null> {
     try {
+      const __filename = fileURLToPath(import.meta.url);
       const __dirname = path.dirname(__filename);
 
       const qrPath = path.join(
