@@ -26,9 +26,15 @@ export class WhatsAppService {
     this.loadExistingConnections();
   }
 
-  private ensureAuthDirectory() {
-    if (!fs.existsSync(this.authDir)) {
-      fs.mkdirSync(this.authDir, { recursive: true });
+  private async ensureAuthDirectory() {
+    try {
+      await fs.ensureDir(this.authDir);
+      Logger.info(
+        `Diretório de autenticação verificado/criado: ${this.authDir}`
+      );
+    } catch (error) {
+      Logger.error(`Erro ao garantir diretório de autenticação:`, error);
+      throw error;
     }
   }
 
