@@ -140,7 +140,7 @@ export class WhatsAppController {
       await this.whatsappService.sendTextMessage(
         instanceName,
         number,
-        textMessage
+        textMessage.text
       );
 
       res.json({
