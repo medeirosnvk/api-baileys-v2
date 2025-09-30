@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
-import { WhatsAppController } from "../controllers/whatsappControllers.js";
-import { WhatsAppService } from "../services/whatsappServices.js";
+import { WhatsAppController } from "../controllers/whatsappControllers";
+import { WhatsAppService } from "../services/whatsappServices";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
