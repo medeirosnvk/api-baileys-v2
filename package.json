@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "ts-node-dev --loader ts-node/esm --respawn --transpile-only src/server.ts",
+    "dev": "node --loader ts-node/esm src/server.ts",
+    "dev-dev": "ts-node-dev --loader ts-node/esm --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },
