@@ -7,7 +7,7 @@
     "dev": "node --loader ts-node/esm src/server.ts",
     "dev-dev": "ts-node-dev --loader ts-node/esm --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "npm run build && node dist/server.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.3",
