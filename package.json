@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node --loader ts-node/esm src/server.ts",
-    "dev": "ts-node-dev --loader ts-node/esm --respawn --transpile-only src/server.ts"
+    "dev": "ts-node --esm src/server.ts"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.3",
