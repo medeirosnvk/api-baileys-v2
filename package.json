@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "WhatsApp API using Baileys",
   "main": "dist/server.js",
-  "type": "module",
   "scripts": {
     "build": "tsc",
     "start": "node --loader ts-node/esm src/server.ts",
