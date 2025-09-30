@@ -446,7 +446,7 @@ export class WhatsAppService {
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = path.dirname(__filename);
 
-      const qrPath = path.join(__dirname, "../../temp", `${connectionId}.png`);
+      const qrPath = path.join(__dirname, "../temp", `${connectionId}.png`);
 
       if (await fs.pathExists(qrPath)) {
         return await fs.readFile(qrPath);
