@@ -5,6 +5,8 @@ import path from "path";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
 import { Logger } from "./utils/logger.js";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
