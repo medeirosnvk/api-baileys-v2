@@ -10,9 +10,9 @@ import { Boom } from "@hapi/boom";
 import * as fs from "fs-extra";
 import * as path from "path";
 import * as QRCode from "qrcode";
-import { Logger } from "../utils/logger";
-import { ConnectionStatus } from "../types";
+import { Logger } from "../utils/logger.js";
 import qrcode from "qrcode-terminal";
+import { ConnectionStatus } from "../types/index.js";
 
 export class WhatsAppService {
   private connections = new Map<string, WASocket>();

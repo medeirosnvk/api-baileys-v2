@@ -2,8 +2,8 @@ import express from "express";
 import cors from "cors";
 import * as fs from "fs-extra";
 import * as path from "path";
-import whatsappRoutes from "./routes/whatsappRoutes";
-import { Logger } from "./utils/logger";
+import whatsappRoutes from "./routes/whatsappRoutes.js";
+import { Logger } from "./utils/logger.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;

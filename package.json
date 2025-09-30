@@ -1,13 +1,12 @@
 {
-  "name": "whatsapp-baileys-api",
+  "name": "api-baileys-v2",
+  "author": "Kevin Medeiros",
   "version": "1.0.0",
-  "description": "WhatsApp API using Baileys",
-  "main": "dist/server.js",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
+    "dev": "ts-node-dev --loader ts-node/esm --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.3",
