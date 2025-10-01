@@ -114,16 +114,20 @@ export class WhatsAppService {
       socket.ev.on("connection.update", async (update) => {
         const { qr, connection } = update;
 
-        // Exibe QR apenas na criação da conexão (não em reconexões automáticas)
-        if (!isReconnection && qr && !qrShown) {
+        // Exibe QR apenas uma vez, tanto em nova conexão quanto em reconexão
+        if (qr && !qrShown) {
           qrShown = true;
-          Logger.info(`QR Code gerado para conexão: ${connectionId}`);
+          Logger.info(
+            `QR Code gerado para conexão ${connectionId} (${
+              isReconnection ? "reconexão" : "nova"
+            })`
+          );
           qrcode.generate(qr, { small: true });
 
           // ⏳ Se em 5 minutos não conectar, encerrar a tentativa
           qrTimeout = setTimeout(() => {
             Logger.warn(
-              `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando conexão.`
+              `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando tentativa.`
             );
             socket.end(undefined);
             this.connections.delete(connectionId);
@@ -131,10 +135,18 @@ export class WhatsAppService {
           }, 5 * 60 * 1000); // 5 minutos
         }
 
-        // Se a conexão for estabelecida, cancelar o timeout
+        // Se conectou, limpar timeout
         if (connection === "open" && qrTimeout) {
           clearTimeout(qrTimeout);
           qrTimeout = null;
+          Logger.info(`Conexão estabelecida com sucesso: ${connectionId}`);
+        }
+
+        // Se a conexão fechar, limpar timeout também
+        if (connection === "close" && qrTimeout) {
+          clearTimeout(qrTimeout);
+          qrTimeout = null;
+          Logger.warn(`Conexão encerrada antes de autenticar: ${connectionId}`);
         }
 
         await this.handleConnectionUpdate(connectionId, update);
