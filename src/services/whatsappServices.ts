@@ -280,11 +280,28 @@ export class WhatsAppService {
       }
 
       const status = this.connectionStatus.get(connectionId);
+
       if (status?.status !== "connected") {
         throw new Error("Conexão não está ativa");
       }
 
-      const jid = to.includes("@") ? to : `${to}@s.whatsapp.net`;
+      let processedNumber = to;
+      const brazilCountryCode = "55";
+
+      if (processedNumber.startsWith(brazilCountryCode)) {
+        const localNumber = processedNumber.slice(4);
+
+        if (localNumber.length === 9 && localNumber.startsWith("9")) {
+          processedNumber =
+            brazilCountryCode +
+            processedNumber.slice(2, 4) +
+            localNumber.slice(1);
+        }
+      }
+
+      const jid = processedNumber.includes("@")
+        ? processedNumber
+        : `${processedNumber}@s.whatsapp.net`;
 
       await socket.sendMessage(jid, { text: message });
 
@@ -316,7 +333,23 @@ export class WhatsAppService {
         throw new Error("Conexão não está ativa");
       }
 
-      const jid = to.includes("@") ? to : `${to}@s.whatsapp.net`;
+      let processedNumber = to;
+      const brazilCountryCode = "55";
+
+      if (processedNumber.startsWith(brazilCountryCode)) {
+        const localNumber = processedNumber.slice(4);
+
+        if (localNumber.length === 9 && localNumber.startsWith("9")) {
+          processedNumber =
+            brazilCountryCode +
+            processedNumber.slice(2, 4) +
+            localNumber.slice(1);
+        }
+      }
+
+      const jid = processedNumber.includes("@")
+        ? processedNumber
+        : `${processedNumber}@s.whatsapp.net`;
 
       let messageContent: any;
 
@@ -381,7 +414,23 @@ export class WhatsAppService {
         throw new Error("Conexão não está ativa");
       }
 
-      const jid = to.includes("@") ? to : `${to}@s.whatsapp.net`;
+      let processedNumber = to;
+      const brazilCountryCode = "55";
+
+      if (processedNumber.startsWith(brazilCountryCode)) {
+        const localNumber = processedNumber.slice(4);
+
+        if (localNumber.length === 9 && localNumber.startsWith("9")) {
+          processedNumber =
+            brazilCountryCode +
+            processedNumber.slice(2, 4) +
+            localNumber.slice(1);
+        }
+      }
+
+      const jid = processedNumber.includes("@")
+        ? processedNumber
+        : `${processedNumber}@s.whatsapp.net`;
 
       // Converte base64 em Buffer
       const mediaBuffer = Buffer.from(base64!, "base64");
