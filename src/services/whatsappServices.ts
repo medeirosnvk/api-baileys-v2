@@ -62,14 +62,26 @@ export class WhatsAppService {
     isReconnection = false
   ): Promise<ConnectionStatus> {
     try {
+      const statusConnecting = this.connectionStatus.get(connectionId);
+
+      if (statusConnecting && statusConnecting.status === "connecting") {
+        Logger.info(
+          `Conexão ${connectionId} já está em andamento. Ignorando nova tentativa...`
+        );
+
+        return statusConnecting;
+      }
+
       // Se for reconexão, limpar conexão existente primeiro
       if (isReconnection && this.connections.has(connectionId)) {
         const existingSocket = this.connections.get(connectionId);
+
         try {
           existingSocket?.end(undefined);
         } catch (error) {
           Logger.warn(`Erro ao finalizar socket existente: ${error}`);
         }
+
         this.connections.delete(connectionId);
       } else if (!isReconnection && this.connections.has(connectionId)) {
         throw new Error("Conexão já existe");
@@ -82,6 +94,7 @@ export class WhatsAppService {
         Logger.warn(
           `Removendo sessão antiga de ${connectionId} para evitar credenciais corrompidas`
         );
+
         await fs.remove(authPath);
       }
 
