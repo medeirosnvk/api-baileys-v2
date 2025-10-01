@@ -76,6 +76,8 @@ export class WhatsAppService {
       if (isReconnection && this.connections.has(connectionId)) {
         const existingSocket = this.connections.get(connectionId);
         const currentStatus = this.connectionStatus.get(connectionId);
+        console.log("existingSocket -", existingSocket);
+        console.log("currentStatus -", currentStatus);
 
         if (!currentStatus || currentStatus.status !== "connecting") {
           try {
