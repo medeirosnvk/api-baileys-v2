@@ -62,27 +62,33 @@ export class WhatsAppService {
     isReconnection = false
   ): Promise<ConnectionStatus> {
     try {
-      const statusConnecting = this.connectionStatus.get(connectionId);
+      const existingStatus = this.connectionStatus.get(connectionId);
 
-      if (statusConnecting && statusConnecting.status === "connecting") {
+      // Se já existe conexão em andamento, apenas retorna o status atual
+      if (existingStatus && existingStatus.status === "connecting") {
         Logger.info(
-          `Conexão ${connectionId} já está em andamento. Ignorando nova tentativa...`
+          `Conexão ${connectionId} já está em andamento. Ignorando nova tentativa.`
         );
-
-        return statusConnecting;
+        return existingStatus;
       }
 
-      // Se for reconexão, limpar conexão existente primeiro
+      // Se for reconexão, limpar conexão existente apenas se não estiver "connecting"
       if (isReconnection && this.connections.has(connectionId)) {
         const existingSocket = this.connections.get(connectionId);
+        const currentStatus = this.connectionStatus.get(connectionId);
 
-        try {
-          existingSocket?.end(undefined);
-        } catch (error) {
-          Logger.warn(`Erro ao finalizar socket existente: ${error}`);
+        if (!currentStatus || currentStatus.status !== "connecting") {
+          try {
+            existingSocket?.end(undefined);
+          } catch (error) {
+            Logger.warn(`Erro ao finalizar socket existente: ${error}`);
+          }
+          this.connections.delete(connectionId);
+        } else {
+          Logger.info(
+            `Conexão ${connectionId} está em connecting. Não será finalizada para evitar interrupção.`
+          );
         }
-
-        this.connections.delete(connectionId);
       } else if (!isReconnection && this.connections.has(connectionId)) {
         throw new Error("Conexão já existe");
       }
@@ -94,7 +100,6 @@ export class WhatsAppService {
         Logger.warn(
           `Removendo sessão antiga de ${connectionId} para evitar credenciais corrompidas`
         );
-
         await fs.remove(authPath);
       }
 
@@ -117,27 +122,20 @@ export class WhatsAppService {
 
       this.connectionStatus.set(connectionId, status);
 
+      // Controle de QR Code
       let qrShown = false;
       let qrTimeout: NodeJS.Timeout | null = null;
 
-      // Evento atualizacao
       socket.ev.on("creds.update", saveCreds);
 
-      // Evento qrcode
       socket.ev.on("connection.update", async (update) => {
         const { qr, connection } = update;
 
-        // Exibe QR apenas uma vez, tanto em nova conexão quanto em reconexão
         if (qr && !qrShown) {
           qrShown = true;
-          Logger.info(
-            `QR Code gerado para conexão ${connectionId} (${
-              isReconnection ? "reconexão" : "nova"
-            })`
-          );
+          Logger.info(`QR Code gerado para conexão ${connectionId}`);
           qrcode.generate(qr, { small: true });
 
-          // ⏳ Se em 5 minutos não conectar, encerrar a tentativa
           qrTimeout = setTimeout(() => {
             Logger.warn(
               `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando tentativa.`
@@ -148,20 +146,18 @@ export class WhatsAppService {
             const timeoutStatus = this.connectionStatus.get(connectionId);
             if (timeoutStatus) {
               timeoutStatus.status = "error";
-              timeoutStatus.error = "timeout"; // 👈 marcador de timeout
+              timeoutStatus.error = "timeout";
               this.connectionStatus.set(connectionId, timeoutStatus);
             }
-          }, 10 * 60 * 1000);
+          }, 5 * 60 * 1000);
         }
 
-        // Se conectou, limpar timeout
         if (connection === "open" && qrTimeout) {
           clearTimeout(qrTimeout);
           qrTimeout = null;
           Logger.info(`Conexão estabelecida com sucesso: ${connectionId}`);
         }
 
-        // Se a conexão fechar, limpar timeout também
         if (connection === "close" && qrTimeout) {
           clearTimeout(qrTimeout);
           qrTimeout = null;
@@ -171,14 +167,13 @@ export class WhatsAppService {
         await this.handleConnectionUpdate(connectionId, update);
       });
 
-      // Evento mensagem
       socket.ev.on("messages.upsert", (messageUpdate) => {
         this.handleIncomingMessage(connectionId, messageUpdate);
       });
 
       Logger.info(
         isReconnection
-          ? `Reconexão realizada: ${connectionId}`
+          ? `Tentando reconectar: ${connectionId}`
           : `Nova conexão criada: ${connectionId}`
       );
 
