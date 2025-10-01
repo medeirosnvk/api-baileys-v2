@@ -104,18 +104,41 @@ export class WhatsAppService {
 
       this.connectionStatus.set(connectionId, status);
 
+      // Variáveis de controle para QR
+      let qrShown = false;
+      let qrTimeout: NodeJS.Timeout | null = null;
+
       // Event listeners
       socket.ev.on("creds.update", saveCreds);
       socket.ev.on("connection.update", async (update) => {
-        const { qr } = update;
+        const { qr, connection } = update;
 
-        if (qr) {
+        // Exibe QR apenas na criação da conexão (não em reconexões automáticas)
+        if (!isReconnection && qr && !qrShown) {
+          qrShown = true;
           Logger.info(`QR Code gerado para conexão: ${connectionId}`);
-          qrcode.generate(qr, { small: true }); // 👈 Exibe o QR no console
+          qrcode.generate(qr, { small: true });
+
+          // ⏳ Se em 5 minutos não conectar, encerrar a tentativa
+          qrTimeout = setTimeout(() => {
+            Logger.warn(
+              `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando conexão.`
+            );
+            socket.end(undefined);
+            this.connections.delete(connectionId);
+            this.connectionStatus.delete(connectionId);
+          }, 5 * 60 * 1000); // 5 minutos
+        }
+
+        // Se a conexão for estabelecida, cancelar o timeout
+        if (connection === "open" && qrTimeout) {
+          clearTimeout(qrTimeout);
+          qrTimeout = null;
         }
 
         await this.handleConnectionUpdate(connectionId, update);
       });
+
       socket.ev.on("messages.upsert", (messageUpdate) => {
         this.handleIncomingMessage(connectionId, messageUpdate);
       });
@@ -146,6 +169,19 @@ export class WhatsAppService {
       status.qrCode = qr;
       status.status = "connecting";
       Logger.info(`QR Code gerado para conexão: ${connectionId}`);
+
+      // Define um timeout de 5 minutos para a conexão
+      const timeout = setTimeout(() => {
+        const currentStatus = this.connectionStatus.get(connectionId);
+        if (currentStatus && currentStatus.status === "connecting") {
+          Logger.warn(
+            `Tempo de espera para conexão ${connectionId} esgotado. Encerrando.`
+          );
+          this.removeConnection(connectionId);
+        }
+      }, 300000); // 5 minutos
+
+      status.connectionTimeout = timeout;
 
       try {
         const qrDir = path.resolve(process.cwd(), "temp");

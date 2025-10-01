@@ -2,6 +2,7 @@ export interface ConnectionStatus {
   id: string;
   status: 'connecting' | 'connected' | 'disconnected' | 'forbidden' | 'error' | 'loggedOut';
   qrCode?: string;
+  connectionTimeout?: NodeJS.Timeout;
   phoneNumber?: string;
   lastSeen?: Date;
   error?: string;
