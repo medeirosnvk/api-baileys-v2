@@ -223,8 +223,8 @@ export class WhatsAppController {
 
   async getQRCodeBase64(req: Request, res: Response) {
     try {
-      const { sessionName } = req.params;
-      const qrBase64 = await this.whatsappService.getQRCodeBase64(sessionName);
+      const { instanceName } = req.params;
+      const qrBase64 = await this.whatsappService.getQRCodeBase64(instanceName);
 
       if (!qrBase64) {
         return res.status(404).json({
@@ -234,7 +234,7 @@ export class WhatsAppController {
       }
 
       res.json({
-        instance: sessionName,
+        instance: instanceName,
         base64: `data:image/png;base64,${qrBase64}`,
       });
     } catch (error: any) {
