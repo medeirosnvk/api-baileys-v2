@@ -559,18 +559,17 @@ export class WhatsAppService {
 
   async getQRCodeImage(connectionId: string): Promise<Buffer | null> {
     try {
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-
-      console.log("__filename", __filename);
-      console.log("__dirname", __dirname);
-
-      const qrPath = path.join(__dirname, "../../temp", `${connectionId}.png`);
+      // Caminho absoluto da pasta temp
+      const qrPath = path.join(
+        "/home/deploy/api-baileys/temp",
+        `${connectionId}.png`
+      );
 
       if (await fs.pathExists(qrPath)) {
         return await fs.readFile(qrPath);
       }
 
+      Logger.warn(`QR Code não encontrado em: ${qrPath}`);
       return null;
     } catch (error) {
       Logger.error("Erro ao obter QR Code:", error);
