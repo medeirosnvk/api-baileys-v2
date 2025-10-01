@@ -75,13 +75,13 @@ export class WhatsAppController {
 
   async removeConnection(req: Request, res: Response) {
     try {
-      const { sessionName } = req.params;
+      const { instanceName } = req.params;
 
-      if (!sessionName) {
-        return res.status(400).send("sessionName is required");
+      if (!instanceName) {
+        return res.status(400).send("instanceName is required");
       }
 
-      const removed = await this.whatsappService.removeConnection(sessionName);
+      const removed = await this.whatsappService.removeConnection(instanceName);
 
       if (!removed) {
         return res.status(404).json({
@@ -105,8 +105,8 @@ export class WhatsAppController {
 
   async getQRCode(req: Request, res: Response) {
     try {
-      const { sessionName } = req.params;
-      const qrBuffer = await this.whatsappService.getQRCodeImage(sessionName);
+      const { instanceName } = req.params;
+      const qrBuffer = await this.whatsappService.getQRCodeImage(instanceName);
 
       if (!qrBuffer) {
         return res.status(404).json({
