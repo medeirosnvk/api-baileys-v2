@@ -103,29 +103,6 @@ export class WhatsAppController {
     }
   }
 
-  async getQRCode(req: Request, res: Response) {
-    try {
-      const { instanceName } = req.params;
-      const qrBuffer = await this.whatsappService.getQRCodeImage(instanceName);
-
-      if (!qrBuffer) {
-        return res.status(404).json({
-          success: false,
-          message: "QR Code não encontrado",
-        });
-      }
-
-      res.setHeader("Content-Type", "image/png");
-      res.send(qrBuffer);
-    } catch (error: any) {
-      Logger.error("Erro ao obter QR Code:", error);
-      res.status(500).json({
-        success: false,
-        message: error.message || "Erro interno do servidor",
-      });
-    }
-  }
-
   async sendMessage(req: Request, res: Response) {
     try {
       const { number, textMessage } = req.body;
@@ -214,6 +191,54 @@ export class WhatsAppController {
       });
     } catch (error: any) {
       Logger.error("Erro ao enviar mídia base64:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Erro interno do servidor",
+      });
+    }
+  }
+
+  async getQRCode(req: Request, res: Response) {
+    try {
+      const { instanceName } = req.params;
+      const qrBuffer = await this.whatsappService.getQRCodeImage(instanceName);
+
+      if (!qrBuffer) {
+        return res.status(404).json({
+          success: false,
+          message: "QR Code não encontrado",
+        });
+      }
+
+      res.setHeader("Content-Type", "image/png");
+      res.send(qrBuffer);
+    } catch (error: any) {
+      Logger.error("Erro ao obter QR Code:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Erro interno do servidor",
+      });
+    }
+  }
+
+  async getQRCodeBase64(req: Request, res: Response) {
+    try {
+      const { sessionName } = req.params;
+      const qrBase64 = await this.whatsappService.getQRCodeBase64(sessionName);
+
+      if (!qrBase64) {
+        return res.status(404).json({
+          success: false,
+          message: "QR Code não encontrado",
+        });
+      }
+
+      res.json({
+        instance: sessionName,
+        base64: `data:image/png;base64,${qrBase64}`,
+      });
+    } catch (error: any) {
+      Logger.error("Erro ao obter QR Code em Base64:", error);
       res.status(500).json({
         success: false,
         message: error.message || "Erro interno do servidor",

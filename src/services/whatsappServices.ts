@@ -576,4 +576,25 @@ export class WhatsAppService {
       return null;
     }
   }
+
+  async getQRCodeBase64(connectionId: string): Promise<string | null> {
+    try {
+      // Caminho absoluto da pasta temp
+      const qrPath = path.join(
+        "/home/deploy/api-baileys/temp",
+        `${connectionId}.png`
+      );
+
+      if (await fs.pathExists(qrPath)) {
+        const buffer = await fs.readFile(qrPath);
+        return buffer.toString("base64"); // 🔑 converte para base64
+      }
+
+      Logger.warn(`QR Code não encontrado em: ${qrPath}`);
+      return null;
+    } catch (error) {
+      Logger.error("Erro ao obter QR Code em Base64:", error);
+      return null;
+    }
+  }
 }
