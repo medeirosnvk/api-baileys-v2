@@ -138,7 +138,7 @@ export class WhatsAppService {
               timeoutStatus.error = "timeout"; // 👈 marcador de timeout
               this.connectionStatus.set(connectionId, timeoutStatus);
             }
-          }, 2 * 60 * 1000);
+          }, 10 * 60 * 1000);
         }
 
         // Se conectou, limpar timeout
