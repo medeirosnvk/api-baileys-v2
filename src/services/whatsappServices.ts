@@ -138,7 +138,7 @@ export class WhatsAppService {
               timeoutStatus.error = "timeout"; // 👈 marcador de timeout
               this.connectionStatus.set(connectionId, timeoutStatus);
             }
-          }, 5 * 60 * 1000);
+          }, 2 * 60 * 1000);
         }
 
         // Se conectou, limpar timeout
@@ -220,6 +220,8 @@ export class WhatsAppService {
         );
         status.status = "disconnected";
         status.error = "timeout";
+        await this.removeConnection(connectionId);
+
         this.connections.delete(connectionId);
         this.connectionStatus.set(connectionId, status);
         return;
@@ -243,6 +245,7 @@ export class WhatsAppService {
 
       // Reconexão normal
       const shouldReconnect = errorCode !== DisconnectReason.loggedOut;
+
       if (shouldReconnect) {
         status.status = "connecting";
         Logger.info(`Reconectando ${connectionId} em 5s...`);
