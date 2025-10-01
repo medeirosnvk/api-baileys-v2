@@ -210,16 +210,16 @@ export class WhatsAppService {
         error
       );
 
-      // 🔒 Pega o status atualizado de novo (pode ter mudado antes deste ponto)
       status = this.connectionStatus.get(connectionId);
       if (!status) return;
 
-      // 🚫 Se foi encerrada por timeout do QR, não tenta reconectar
-      if (status.error === "timeout") {
+      // 🚫 Se foi encerrada por timeout do QR (408), não tenta reconectar
+      if (errorCode === 408 || status.error === "timeout") {
         Logger.warn(
-          `Conexão ${connectionId} fechada por timeout do QR. Não será reconectada.`
+          `Conexão ${connectionId} fechada por TIMEOUT do QR. Não será reconectada.`
         );
         status.status = "disconnected";
+        status.error = "timeout";
         this.connections.delete(connectionId);
         this.connectionStatus.set(connectionId, status);
         return;
@@ -241,6 +241,7 @@ export class WhatsAppService {
         return; // 🔑 não tenta reconectar
       }
 
+      // Reconexão normal
       const shouldReconnect = errorCode !== DisconnectReason.loggedOut;
       if (shouldReconnect) {
         status.status = "connecting";
