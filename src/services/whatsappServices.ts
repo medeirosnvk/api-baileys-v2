@@ -131,8 +131,14 @@ export class WhatsAppService {
             );
             socket.end(undefined);
             this.connections.delete(connectionId);
-            this.connectionStatus.delete(connectionId);
-          }, 5 * 60 * 1000); // 5 minutos
+
+            const timeoutStatus = this.connectionStatus.get(connectionId);
+            if (timeoutStatus) {
+              timeoutStatus.status = "error";
+              timeoutStatus.error = "timeout"; // 👈 marcador de timeout
+              this.connectionStatus.set(connectionId, timeoutStatus);
+            }
+          }, 5 * 60 * 1000);
         }
 
         // Se conectou, limpar timeout
@@ -175,7 +181,7 @@ export class WhatsAppService {
     update: Partial<ConnectionState>
   ) {
     const { connection, lastDisconnect, qr } = update;
-    const status = this.connectionStatus.get(connectionId);
+    let status = this.connectionStatus.get(connectionId);
 
     if (!status) return;
 
@@ -204,6 +210,21 @@ export class WhatsAppService {
         error
       );
 
+      // 🔒 Pega o status atualizado de novo (pode ter mudado antes deste ponto)
+      status = this.connectionStatus.get(connectionId);
+      if (!status) return;
+
+      // 🚫 Se foi encerrada por timeout do QR, não tenta reconectar
+      if (status.error === "timeout") {
+        Logger.warn(
+          `Conexão ${connectionId} fechada por timeout do QR. Não será reconectada.`
+        );
+        status.status = "disconnected";
+        this.connections.delete(connectionId);
+        this.connectionStatus.set(connectionId, status);
+        return;
+      }
+
       // 🔑 Forçar parada definitiva em erros críticos
       if (
         errorCode === DisconnectReason.badSession ||
@@ -230,15 +251,20 @@ export class WhatsAppService {
             await this.createConnection(connectionId, true);
           } catch (error) {
             Logger.error(`Erro na reconexão ${connectionId}:`, error);
-            status.status = "error";
-            status.error = "Falha na reconexão";
-            this.connectionStatus.set(connectionId, status);
+            status = this.connectionStatus.get(connectionId);
+            if (status) {
+              status.status = "error";
+              status.error = "Falha na reconexão";
+              this.connectionStatus.set(connectionId, status);
+            }
           }
         }, 5000);
       } else {
         status.status = "disconnected";
         this.connections.delete(connectionId);
       }
+
+      this.connectionStatus.set(connectionId, status);
     } else if (connection === "open") {
       status.status = "connected";
       status.qrCode = undefined;
@@ -251,9 +277,8 @@ export class WhatsAppService {
       }
 
       Logger.success(`Conexão ${connectionId} estabelecida com sucesso!`);
+      this.connectionStatus.set(connectionId, status);
     }
-
-    this.connectionStatus.set(connectionId, status);
   }
 
   private handleIncomingMessage(connectionId: string, messageUpdate: any) {
