@@ -18,6 +18,8 @@ import fs from "fs-extra";
 export class WhatsAppService {
   private connections = new Map<string, WASocket>();
   private connectionStatus = new Map<string, ConnectionStatus>();
+  private connectionPromises = new Map<string, Promise<ConnectionStatus>>();
+
   // Use project-root level auth directory so it works in dev (src) and prod (dist)
   private authDir = path.resolve(process.cwd(), "auth");
 
@@ -61,129 +63,142 @@ export class WhatsAppService {
     connectionId: string,
     isReconnection = false
   ): Promise<ConnectionStatus> {
-    try {
-      const existingStatus = this.connectionStatus.get(connectionId);
-
-      // Se já existe conexão em andamento, apenas retorna o status atual
-      if (existingStatus && existingStatus.status === "connecting") {
-        Logger.info(
-          `Conexão ${connectionId} já está em andamento. Ignorando nova tentativa.`
-        );
-        return existingStatus;
-      }
-
-      // Se for reconexão, limpar conexão existente apenas se não estiver "connecting"
-      if (isReconnection && this.connections.has(connectionId)) {
-        const existingSocket = this.connections.get(connectionId);
-        const currentStatus = this.connectionStatus.get(connectionId);
-        console.log("existingSocket -", existingSocket);
-        console.log("currentStatus -", currentStatus);
-
-        if (!currentStatus || currentStatus.status !== "connecting") {
-          try {
-            existingSocket?.end(undefined);
-          } catch (error) {
-            Logger.warn(`Erro ao finalizar socket existente: ${error}`);
-          }
-          this.connections.delete(connectionId);
-        } else {
-          Logger.info(
-            `Conexão ${connectionId} está em connecting. Não será finalizada para evitar interrupção.`
-          );
-        }
-      } else if (!isReconnection && this.connections.has(connectionId)) {
-        throw new Error("Conexão já existe");
-      }
-
-      const authPath = path.join(this.authDir, connectionId);
-
-      // 🔑 Se NÃO for reconexão, sempre limpar pasta de sessão antiga
-      if (!isReconnection && (await fs.pathExists(authPath))) {
-        Logger.warn(
-          `Removendo sessão antiga de ${connectionId} para evitar credenciais corrompidas`
-        );
-        await fs.remove(authPath);
-      }
-
-      await fs.ensureDir(authPath);
-
-      const { state, saveCreds } = await useMultiFileAuthState(authPath);
-
-      const socket = makeWASocket({
-        auth: state,
-        logger: pino({ level: "silent" }),
-      });
-
-      this.connections.set(connectionId, socket);
-
-      const status: ConnectionStatus = {
-        id: connectionId,
-        status: "connecting",
-        lastSeen: new Date(),
-      };
-
-      this.connectionStatus.set(connectionId, status);
-
-      // Controle de QR Code
-      let qrShown = false;
-      let qrTimeout: NodeJS.Timeout | null = null;
-
-      socket.ev.on("creds.update", saveCreds);
-
-      socket.ev.on("connection.update", async (update) => {
-        const { qr, connection } = update;
-
-        if (qr && !qrShown) {
-          qrShown = true;
-          Logger.info(`QR Code gerado para conexão ${connectionId}`);
-          qrcode.generate(qr, { small: true });
-
-          qrTimeout = setTimeout(() => {
-            Logger.warn(
-              `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando tentativa.`
-            );
-            socket.end(undefined);
-            this.connections.delete(connectionId);
-
-            const timeoutStatus = this.connectionStatus.get(connectionId);
-            if (timeoutStatus) {
-              timeoutStatus.status = "error";
-              timeoutStatus.error = "timeout";
-              this.connectionStatus.set(connectionId, timeoutStatus);
-            }
-          }, 5 * 60 * 1000);
-        }
-
-        if (connection === "open" && qrTimeout) {
-          clearTimeout(qrTimeout);
-          qrTimeout = null;
-          Logger.info(`Conexão estabelecida com sucesso: ${connectionId}`);
-        }
-
-        if (connection === "close" && qrTimeout) {
-          clearTimeout(qrTimeout);
-          qrTimeout = null;
-          Logger.warn(`Conexão encerrada antes de autenticar: ${connectionId}`);
-        }
-
-        await this.handleConnectionUpdate(connectionId, update);
-      });
-
-      socket.ev.on("messages.upsert", (messageUpdate) => {
-        this.handleIncomingMessage(connectionId, messageUpdate);
-      });
-
+    // 🔒 Se já existe uma promessa de conexão sendo processada, apenas aguarde
+    if (this.connectionPromises.has(connectionId)) {
       Logger.info(
-        isReconnection
-          ? `Tentando reconectar: ${connectionId}`
-          : `Nova conexão criada: ${connectionId}`
+        `⏳ Conexão ${connectionId} já está em andamento — aguardando conclusão.`
       );
-
-      return status;
-    } catch (error) {
-      Logger.error(`Erro ao criar conexão ${connectionId}:`, error);
-      throw error;
+      return this.connectionPromises.get(connectionId)!;
     }
+
+    // Cria a promessa e armazena no mapa
+    const connectionPromise = (async () => {
+      try {
+        const existingStatus = this.connectionStatus.get(connectionId);
+
+        // ⚙️ Se já estiver conectando, apenas retorna o status atual
+        if (existingStatus?.status === "connecting") {
+          Logger.info(`Conexão ${connectionId} já está sendo criada.`);
+          return existingStatus;
+        }
+
+        // 🔁 Se for reconexão e já existir um socket ativo, encerra se necessário
+        if (isReconnection && this.connections.has(connectionId)) {
+          const existingSocket = this.connections.get(connectionId);
+          const currentStatus = this.connectionStatus.get(connectionId);
+
+          if (!currentStatus || currentStatus.status !== "connecting") {
+            try {
+              existingSocket?.end(undefined);
+            } catch (error) {
+              Logger.warn(`Erro ao finalizar socket existente: ${error}`);
+            }
+            this.connections.delete(connectionId);
+          } else {
+            Logger.info(
+              `Conexão ${connectionId} está em connecting — reconexão ignorada.`
+            );
+          }
+        } else if (!isReconnection && this.connections.has(connectionId)) {
+          throw new Error(`Conexão ${connectionId} já existe e está ativa.`);
+        }
+
+        const authPath = path.join(this.authDir, connectionId);
+
+        // 🔑 Se NÃO for reconexão, remove sessão antiga
+        if (!isReconnection && (await fs.pathExists(authPath))) {
+          Logger.warn(
+            `Removendo sessão antiga de ${connectionId} (nova conexão limpa).`
+          );
+          await fs.remove(authPath);
+        }
+
+        await fs.ensureDir(authPath);
+        const { state, saveCreds } = await useMultiFileAuthState(authPath);
+
+        // ⚡ Criação do socket
+        const socket = makeWASocket({
+          auth: state,
+          logger: pino({ level: "silent" }),
+        });
+
+        this.connections.set(connectionId, socket);
+
+        const status: ConnectionStatus = {
+          id: connectionId,
+          status: "connecting",
+          lastSeen: new Date(),
+        };
+        this.connectionStatus.set(connectionId, status);
+
+        let qrShown = false;
+        let qrTimeout: NodeJS.Timeout | null = null;
+
+        socket.ev.on("creds.update", saveCreds);
+
+        socket.ev.on("connection.update", async (update) => {
+          const { qr, connection } = update;
+
+          if (qr && !qrShown) {
+            qrShown = true;
+            Logger.info(`QR Code gerado para conexão ${connectionId}`);
+            qrcode.generate(qr, { small: true });
+
+            qrTimeout = setTimeout(() => {
+              Logger.warn(
+                `Tempo limite para leitura do QR (${connectionId}) expirou.`
+              );
+              socket.end(undefined);
+              this.connections.delete(connectionId);
+
+              const timeoutStatus = this.connectionStatus.get(connectionId);
+              if (timeoutStatus) {
+                timeoutStatus.status = "error";
+                timeoutStatus.error = "timeout";
+                this.connectionStatus.set(connectionId, timeoutStatus);
+              }
+            }, 5 * 60 * 1000);
+          }
+
+          if (connection === "open" && qrTimeout) {
+            clearTimeout(qrTimeout);
+            qrTimeout = null;
+            Logger.info(`✅ Conexão estabelecida com sucesso: ${connectionId}`);
+          }
+
+          if (connection === "close" && qrTimeout) {
+            clearTimeout(qrTimeout);
+            qrTimeout = null;
+            Logger.warn(
+              `⚠️ Conexão encerrada antes da autenticação: ${connectionId}`
+            );
+          }
+
+          await this.handleConnectionUpdate(connectionId, update);
+        });
+
+        socket.ev.on("messages.upsert", (messageUpdate) => {
+          this.handleIncomingMessage(connectionId, messageUpdate);
+        });
+
+        Logger.info(
+          isReconnection
+            ? `🔁 Tentando reconectar usando sessão existente: ${connectionId}`
+            : `🆕 Criando nova conexão: ${connectionId}`
+        );
+
+        return status;
+      } catch (error) {
+        Logger.error(`Erro ao criar conexão ${connectionId}:`, error);
+        throw error;
+      } finally {
+        // 🚀 Ao finalizar (sucesso ou erro), remove a promessa ativa
+        this.connectionPromises.delete(connectionId);
+      }
+    })();
+
+    this.connectionPromises.set(connectionId, connectionPromise);
+    return connectionPromise;
   }
 
   private async handleConnectionUpdate(
