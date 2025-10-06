@@ -116,10 +116,27 @@ export class WhatsAppService {
         await fs.ensureDir(authPath);
         const { state, saveCreds } = await useMultiFileAuthState(authPath);
 
+        const customLogger = pino({
+          level: "silent", // Desativa a maioria dos logs
+          hooks: {
+            logMethod(args, method) {
+              // Filtra logs que contêm "Closing stale open session"
+              if (
+                args[0] &&
+                typeof args[0] === "string" &&
+                args[0].includes("Closing stale open session")
+              ) {
+                return; // ignora
+              }
+              method.apply(this, args); // loga o resto normalmente
+            },
+          },
+        });
+
         // ⚡ Criação do socket
         const socket = makeWASocket({
           auth: state,
-          logger: pino({ level: "silent" }),
+          logger: customLogger,
         });
 
         this.connections.set(connectionId, socket);
