@@ -130,43 +130,79 @@ export class WhatsAppService {
 
       socket.ev.on("creds.update", saveCreds);
 
-      socket.ev.on("connection.update", async (update) => {
-        const { qr, connection } = update;
+      // socket.ev.on("connection.update", async (update) => {
+      //   const { qr, connection } = update;
 
-        if (qr && !qrShown) {
-          qrShown = true;
-          Logger.info(`QR Code gerado para conexão ${connectionId}`);
-          qrcode.generate(qr, { small: true });
+      //   if (qr && !qrShown) {
+      //     qrShown = true;
+      //     Logger.info(`QR Code gerado para conexão ${connectionId}`);
+      //     qrcode.generate(qr, { small: true });
 
-          qrTimeout = setTimeout(() => {
-            Logger.warn(
-              `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando tentativa.`
-            );
-            socket.end(undefined);
-            this.connections.delete(connectionId);
+      //     qrTimeout = setTimeout(() => {
+      //       Logger.warn(
+      //         `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando tentativa.`
+      //       );
+      //       socket.end(undefined);
+      //       this.connections.delete(connectionId);
 
-            const timeoutStatus = this.connectionStatus.get(connectionId);
-            if (timeoutStatus) {
-              timeoutStatus.status = "error";
-              timeoutStatus.error = "timeout";
-              this.connectionStatus.set(connectionId, timeoutStatus);
+      //       const timeoutStatus = this.connectionStatus.get(connectionId);
+      //       if (timeoutStatus) {
+      //         timeoutStatus.status = "error";
+      //         timeoutStatus.error = "timeout";
+      //         this.connectionStatus.set(connectionId, timeoutStatus);
+      //       }
+      //     }, 5 * 60 * 1000);
+      //   }
+
+      //   if (connection === "open" && qrTimeout) {
+      //     clearTimeout(qrTimeout);
+      //     qrTimeout = null;
+      //     Logger.info(`Conexão estabelecida com sucesso: ${connectionId}`);
+      //   }
+
+      //   if (connection === "close" && qrTimeout) {
+      //     clearTimeout(qrTimeout);
+      //     qrTimeout = null;
+      //     Logger.warn(`Conexão encerrada antes de autenticar: ${connectionId}`);
+      //   }
+
+      //   await this.handleConnectionUpdate(connectionId, update);
+      // });
+
+      socket.ev.on("connection.update", (update) => {
+        const { connection, lastDisconnect } = update;
+
+        if (connection === "close") {
+          let shouldReconnect = true;
+
+          const error = lastDisconnect?.error;
+          if (error) {
+            // Verifica se é uma instância Boom (que tem .output)
+            if (error instanceof Boom) {
+              shouldReconnect =
+                error.output.statusCode !== DisconnectReason.loggedOut;
+            } else {
+              // fallback para erros genéricos
+              shouldReconnect = true;
             }
-          }, 5 * 60 * 1000);
-        }
+          }
 
-        if (connection === "open" && qrTimeout) {
-          clearTimeout(qrTimeout);
-          qrTimeout = null;
-          Logger.info(`Conexão estabelecida com sucesso: ${connectionId}`);
+          if (shouldReconnect) {
+            console.log(
+              `🔄 Tentando reconectar a instância ${connectionId}...`
+            );
+            // opcional: aqui você pode chamar a função que reconecta, ex:
+            // createConnection(connectionId, true);
+          } else {
+            console.log(
+              `⚠️ Usuário da instância ${connectionId} desconectado. Escaneie o QR Code novamente.`
+            );
+          }
+        } else if (connection === "open") {
+          console.log(
+            `✅ Conexão iniciada com sucesso para a instância ${connectionId}!`
+          );
         }
-
-        if (connection === "close" && qrTimeout) {
-          clearTimeout(qrTimeout);
-          qrTimeout = null;
-          Logger.warn(`Conexão encerrada antes de autenticar: ${connectionId}`);
-        }
-
-        await this.handleConnectionUpdate(connectionId, update);
       });
 
       socket.ev.on("messages.upsert", (messageUpdate) => {
