@@ -24,6 +24,10 @@ export class WhatsAppService {
   private connectionLocks = new Map<string, boolean>();
   private connectionPromises = new Map<string, Promise<ConnectionStatus>>();
 
+  // 🔄 Controle de tentativas de reconexão
+  private reconnectAttempts = new Map<string, number>();
+  private readonly MAX_RECONNECT_ATTEMPTS = 3;
+
   constructor() {
     this.ensureAuthDirectory();
     Logger.info(`Diretório de autenticação: ${this.authDir}`);
@@ -315,6 +319,80 @@ export class WhatsAppService {
         return;
       }
 
+      // 🔄 NOVO: Reconexão automática para erro 515 (Stream Error)
+      if (errorCode === 515) {
+        const attempts = this.reconnectAttempts.get(connectionId) || 0;
+
+        if (attempts >= this.MAX_RECONNECT_ATTEMPTS) {
+          Logger.error(
+            `Máximo de tentativas de reconexão atingido para ${connectionId} (${attempts}/${this.MAX_RECONNECT_ATTEMPTS})`
+          );
+          status.status = "error";
+          status.error = `Falha após ${attempts} tentativas (erro 515)`;
+          this.connectionStatus.set(connectionId, status);
+          this.reconnectAttempts.delete(connectionId);
+          this.connectionLocks.delete(connectionId);
+          await this.removeConnection(connectionId);
+          return;
+        }
+
+        this.reconnectAttempts.set(connectionId, attempts + 1);
+        Logger.warn(
+          `Erro 515 (Stream Error) em ${connectionId}. Tentativa ${
+            attempts + 1
+          }/${this.MAX_RECONNECT_ATTEMPTS}`
+        );
+
+        // Limpa conexão atual
+        this.connections.delete(connectionId);
+        this.connectionLocks.delete(connectionId);
+
+        // Aguarda 2 segundos antes de reconectar
+        setTimeout(async () => {
+          try {
+            Logger.info(`Iniciando reconexão automática para ${connectionId}`);
+            await this.createConnection(connectionId, true);
+          } catch (reconnectError) {
+            Logger.error(
+              `Falha na reconexão automática de ${connectionId}:`,
+              reconnectError
+            );
+            status.status = "error";
+            status.error = "Falha na reconexão após erro 515";
+            this.connectionStatus.set(connectionId, status);
+          }
+        }, 2000);
+
+        return;
+      }
+
+      // 🔄 Reconexão para erros recuperáveis (logout, restartRequired, connectionLost)
+      if (
+        errorCode === DisconnectReason.loggedOut ||
+        errorCode === DisconnectReason.restartRequired ||
+        errorCode === DisconnectReason.connectionLost
+      ) {
+        Logger.info(
+          `Erro recuperável detectado (${errorCode}) em ${connectionId}. Reconectando...`
+        );
+
+        this.connections.delete(connectionId);
+        this.connectionLocks.delete(connectionId);
+
+        setTimeout(async () => {
+          try {
+            await this.createConnection(connectionId, true);
+          } catch (reconnectError) {
+            Logger.error(
+              `Falha na reconexão de ${connectionId}:`,
+              reconnectError
+            );
+          }
+        }, 3000);
+
+        return;
+      }
+
       this.connectionStatus.set(connectionId, status);
     } else if (connection === "open") {
       status.status = "connected";
@@ -329,6 +407,9 @@ export class WhatsAppService {
 
       Logger.success(`Conexão ${connectionId} estabelecida com sucesso!`);
       this.connectionStatus.set(connectionId, status);
+
+      // 🔄 Reseta contador de tentativas após conexão bem-sucedida
+      this.reconnectAttempts.delete(connectionId);
     }
   }
 
