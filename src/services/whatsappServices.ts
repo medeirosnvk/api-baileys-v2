@@ -195,7 +195,6 @@ export class WhatsAppService {
 
     if (!status) return;
 
-    // 📸 Controle de QR Code
     if (qr) {
       status.qrCode = qr;
       status.status = "connecting";
@@ -210,11 +209,8 @@ export class WhatsAppService {
       } catch (error) {
         Logger.error("Erro ao salvar QR Code:", error);
       }
-
-      this.connectionStatus.set(connectionId, status);
     }
 
-    // 📡 Quando a conexão é encerrada
     if (connection === "close") {
       const error = lastDisconnect?.error as Boom;
       const errorCode = error?.output?.statusCode;
@@ -227,7 +223,7 @@ export class WhatsAppService {
       status = this.connectionStatus.get(connectionId);
       if (!status) return;
 
-      // 🚫 Timeout de QR Code — não reconectar
+      // 🚫 Se foi encerrada por timeout do QR (408), não tenta reconectar
       if (errorCode === 408 || status.error === "timeout") {
         Logger.warn(
           `Conexão ${connectionId} fechada por TIMEOUT do QR. Não será reconectada.`
@@ -235,16 +231,17 @@ export class WhatsAppService {
         status.status = "disconnected";
         status.error = "timeout";
         await this.removeConnection(connectionId);
+
         this.connections.delete(connectionId);
         this.connectionStatus.set(connectionId, status);
         return;
       }
 
-      // 🚫 Sessão inválida, número bloqueado ou proibido
+      // 🔑 Forçar parada definitiva em erros críticos
       if (
         errorCode === DisconnectReason.badSession ||
         errorCode === DisconnectReason.forbidden ||
-        error?.message?.includes("405")
+        error?.message?.includes("405") // fallback
       ) {
         status.status = "error";
         status.error = "Sessão inválida ou número proibido";
@@ -252,90 +249,12 @@ export class WhatsAppService {
           `Encerrando conexão ${connectionId} por erro crítico (badSession/forbidden/405)`
         );
         await this.removeConnection(connectionId);
-        this.connections.delete(connectionId);
         this.connectionStatus.set(connectionId, status);
-        return;
-      }
-
-      // ⚠️ Tratamento especial para erro 515 (Stream Errored)
-      if (errorCode === 515) {
-        Logger.warn(
-          `Erro 515 (Stream Errored) detectado em ${connectionId} — reiniciando sessão do zero.`
-        );
-        try {
-          const existingSocket = this.connections.get(connectionId);
-          if (existingSocket) {
-            existingSocket.end(undefined);
-            this.connections.delete(connectionId);
-          }
-          await this.removeConnection(connectionId);
-        } catch (cleanupError) {
-          Logger.warn(`Erro ao limpar sessão 515: ${cleanupError}`);
-        }
-
-        // 🔁 Reconexão segura após 3s
-        setTimeout(async () => {
-          try {
-            await this.createConnection(connectionId, true);
-          } catch (reconnectError) {
-            Logger.error(`Erro ao reiniciar ${connectionId}:`, reconnectError);
-          }
-        }, 3000);
-
-        return;
-      }
-
-      // 🔁 Reconexão padrão (exceto logout)
-      const shouldReconnect = errorCode !== DisconnectReason.loggedOut;
-
-      if (shouldReconnect) {
-        Logger.info(`Reconectando ${connectionId} em 5s...`);
-        this.connections.delete(connectionId);
-
-        setTimeout(async () => {
-          try {
-            // 🔄 Atualiza status APENAS antes da nova tentativa real
-            const currentStatus = this.connectionStatus.get(connectionId);
-            if (currentStatus) {
-              currentStatus.status = "connecting";
-              currentStatus.error = undefined;
-              this.connectionStatus.set(connectionId, currentStatus);
-            }
-
-            // 🔒 Garante que o socket antigo esteja fechado
-            const existingSocket = this.connections.get(connectionId);
-            if (existingSocket) {
-              try {
-                existingSocket.end(undefined);
-                this.connections.delete(connectionId);
-              } catch (endError) {
-                Logger.warn(`Erro ao encerrar socket antigo: ${endError}`);
-              }
-            }
-
-            await this.createConnection(connectionId, true);
-          } catch (error) {
-            Logger.error(`Erro na reconexão ${connectionId}:`, error);
-            const failedStatus = this.connectionStatus.get(connectionId);
-            if (failedStatus) {
-              failedStatus.status = "error";
-              failedStatus.error = "Falha na reconexão";
-              this.connectionStatus.set(connectionId, failedStatus);
-            }
-          }
-        }, 5000);
-      } else {
-        // 🚪 Logout manual ou sessão encerrada
-        status.status = "disconnected";
-        this.connections.delete(connectionId);
+        return; // 🔑 não tenta reconectar
       }
 
       this.connectionStatus.set(connectionId, status);
-      return;
-    }
-
-    // ✅ Quando a conexão é aberta com sucesso
-    if (connection === "open") {
+    } else if (connection === "open") {
       status.status = "connected";
       status.qrCode = undefined;
       status.error = undefined;
