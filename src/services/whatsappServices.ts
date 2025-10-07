@@ -18,8 +18,11 @@ import fs from "fs-extra";
 export class WhatsAppService {
   private connections = new Map<string, WASocket>();
   private connectionStatus = new Map<string, ConnectionStatus>();
-  // Use project-root level auth directory so it works in dev (src) and prod (dist)
   private authDir = path.resolve(process.cwd(), "auth");
+
+  // 🔒 NOVO: Controle de locks para evitar chamadas concorrentes
+  private connectionLocks = new Map<string, boolean>();
+  private connectionPromises = new Map<string, Promise<ConnectionStatus>>();
 
   constructor() {
     this.ensureAuthDirectory();
@@ -61,23 +64,69 @@ export class WhatsAppService {
     connectionId: string,
     isReconnection = false
   ): Promise<ConnectionStatus> {
-    try {
-      const existingStatus = this.connectionStatus.get(connectionId);
+    // 🔒 PROTEÇÃO 1: Se já existe uma promise em andamento, retorna ela
+    const existingPromise = this.connectionPromises.get(connectionId);
+    if (existingPromise) {
+      Logger.info(
+        `Conexão ${connectionId} já está em processamento. Retornando promise existente.`
+      );
+      return existingPromise;
+    }
 
-      // Se já existe conexão em andamento, apenas retorna o status atual
-      if (existingStatus && existingStatus.status === "connecting") {
+    // 🔒 PROTEÇÃO 2: Verificar se já existe lock ativo
+    if (this.connectionLocks.get(connectionId)) {
+      Logger.warn(
+        `Tentativa de criar conexão ${connectionId} enquanto outra está em andamento. Ignorando.`
+      );
+      const status = this.connectionStatus.get(connectionId);
+      if (status) return status;
+
+      throw new Error(`Conexão ${connectionId} está sendo processada`);
+    }
+
+    // 🔒 PROTEÇÃO 3: Verificar status atual antes de prosseguir
+    const existingStatus = this.connectionStatus.get(connectionId);
+    if (existingStatus) {
+      // Se está conectando ou conectado, retorna o status atual
+      if (
+        existingStatus.status === "connecting" ||
+        existingStatus.status === "connected"
+      ) {
         Logger.info(
-          `Conexão ${connectionId} já está em andamento. Ignorando nova tentativa.`
+          `Conexão ${connectionId} já está ${existingStatus.status}. Retornando status atual.`
         );
         return existingStatus;
       }
+    }
 
+    // Cria a promise e armazena antes de iniciar o processo
+    const connectionPromise = this._createConnectionInternal(
+      connectionId,
+      isReconnection
+    );
+    this.connectionPromises.set(connectionId, connectionPromise);
+
+    try {
+      const result = await connectionPromise;
+      return result;
+    } finally {
+      // Limpa a promise após conclusão (sucesso ou erro)
+      this.connectionPromises.delete(connectionId);
+    }
+  }
+
+  private async _createConnectionInternal(
+    connectionId: string,
+    isReconnection = false
+  ): Promise<ConnectionStatus> {
+    // Ativa o lock
+    this.connectionLocks.set(connectionId, true);
+
+    try {
       // Se for reconexão, limpar conexão existente apenas se não estiver "connecting"
       if (isReconnection && this.connections.has(connectionId)) {
         const existingSocket = this.connections.get(connectionId);
         const currentStatus = this.connectionStatus.get(connectionId);
-        console.log("existingSocket -", existingSocket);
-        console.log("currentStatus -", currentStatus);
 
         if (!currentStatus || currentStatus.status !== "connecting") {
           try {
@@ -88,7 +137,7 @@ export class WhatsAppService {
           this.connections.delete(connectionId);
         } else {
           Logger.info(
-            `Conexão ${connectionId} está em connecting. Não será finalizada para evitar interrupção.`
+            `Conexão ${connectionId} está em connecting. Não será finalizada.`
           );
         }
       } else if (!isReconnection && this.connections.has(connectionId)) {
@@ -97,7 +146,7 @@ export class WhatsAppService {
 
       const authPath = path.join(this.authDir, connectionId);
 
-      // 🔑 Se NÃO for reconexão, sempre limpar pasta de sessão antiga
+      // Se NÃO for reconexão, sempre limpar pasta de sessão antiga
       if (!isReconnection && (await fs.pathExists(authPath))) {
         Logger.warn(
           `Removendo sessão antiga de ${connectionId} para evitar credenciais corrompidas`
@@ -130,79 +179,50 @@ export class WhatsAppService {
 
       socket.ev.on("creds.update", saveCreds);
 
-      // socket.ev.on("connection.update", async (update) => {
-      //   const { qr, connection } = update;
+      socket.ev.on("connection.update", async (update) => {
+        const { qr, connection } = update;
 
-      //   if (qr && !qrShown) {
-      //     qrShown = true;
-      //     Logger.info(`QR Code gerado para conexão ${connectionId}`);
-      //     qrcode.generate(qr, { small: true });
+        if (qr && !qrShown) {
+          qrShown = true;
+          Logger.info(`QR Code gerado para conexão ${connectionId}`);
+          qrcode.generate(qr, { small: true });
 
-      //     qrTimeout = setTimeout(() => {
-      //       Logger.warn(
-      //         `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando tentativa.`
-      //       );
-      //       socket.end(undefined);
-      //       this.connections.delete(connectionId);
+          qrTimeout = setTimeout(() => {
+            Logger.warn(
+              `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando tentativa.`
+            );
+            socket.end(undefined);
+            this.connections.delete(connectionId);
 
-      //       const timeoutStatus = this.connectionStatus.get(connectionId);
-      //       if (timeoutStatus) {
-      //         timeoutStatus.status = "error";
-      //         timeoutStatus.error = "timeout";
-      //         this.connectionStatus.set(connectionId, timeoutStatus);
-      //       }
-      //     }, 5 * 60 * 1000);
-      //   }
-
-      //   if (connection === "open" && qrTimeout) {
-      //     clearTimeout(qrTimeout);
-      //     qrTimeout = null;
-      //     Logger.info(`Conexão estabelecida com sucesso: ${connectionId}`);
-      //   }
-
-      //   if (connection === "close" && qrTimeout) {
-      //     clearTimeout(qrTimeout);
-      //     qrTimeout = null;
-      //     Logger.warn(`Conexão encerrada antes de autenticar: ${connectionId}`);
-      //   }
-
-      //   await this.handleConnectionUpdate(connectionId, update);
-      // });
-
-      socket.ev.on("connection.update", (update) => {
-        const { connection, lastDisconnect } = update;
-
-        if (connection === "close") {
-          let shouldReconnect = true;
-
-          const error = lastDisconnect?.error;
-          if (error) {
-            // Verifica se é uma instância Boom (que tem .output)
-            if (error instanceof Boom) {
-              shouldReconnect =
-                error.output.statusCode !== DisconnectReason.loggedOut;
-            } else {
-              // fallback para erros genéricos
-              shouldReconnect = true;
+            const timeoutStatus = this.connectionStatus.get(connectionId);
+            if (timeoutStatus) {
+              timeoutStatus.status = "error";
+              timeoutStatus.error = "timeout";
+              this.connectionStatus.set(connectionId, timeoutStatus);
             }
-          }
 
-          if (shouldReconnect) {
-            console.log(
-              `🔄 Tentando reconectar a instância ${connectionId}...`
-            );
-            // opcional: aqui você pode chamar a função que reconecta, ex:
-            // createConnection(connectionId, true);
-          } else {
-            console.log(
-              `⚠️ Usuário da instância ${connectionId} desconectado. Escaneie o QR Code novamente.`
-            );
-          }
-        } else if (connection === "open") {
-          console.log(
-            `✅ Conexão iniciada com sucesso para a instância ${connectionId}!`
-          );
+            // 🔒 Libera o lock quando houver timeout
+            this.connectionLocks.delete(connectionId);
+          }, 5 * 60 * 1000);
         }
+
+        if (connection === "open" && qrTimeout) {
+          clearTimeout(qrTimeout);
+          qrTimeout = null;
+          Logger.info(`Conexão estabelecida com sucesso: ${connectionId}`);
+          // 🔒 Libera o lock quando conectar com sucesso
+          this.connectionLocks.delete(connectionId);
+        }
+
+        if (connection === "close" && qrTimeout) {
+          clearTimeout(qrTimeout);
+          qrTimeout = null;
+          Logger.warn(`Conexão encerrada antes de autenticar: ${connectionId}`);
+          // 🔒 Libera o lock quando fechar
+          this.connectionLocks.delete(connectionId);
+        }
+
+        await this.handleConnectionUpdate(connectionId, update);
       });
 
       socket.ev.on("messages.upsert", (messageUpdate) => {
@@ -218,6 +238,8 @@ export class WhatsAppService {
       return status;
     } catch (error) {
       Logger.error(`Erro ao criar conexão ${connectionId}:`, error);
+      // 🔒 Libera o lock em caso de erro
+      this.connectionLocks.delete(connectionId);
       throw error;
     }
   }
@@ -259,7 +281,7 @@ export class WhatsAppService {
       status = this.connectionStatus.get(connectionId);
       if (!status) return;
 
-      // 🚫 Se foi encerrada por timeout do QR (408), não tenta reconectar
+      // Se foi encerrada por timeout do QR (408), não tenta reconectar
       if (errorCode === 408 || status.error === "timeout") {
         Logger.warn(
           `Conexão ${connectionId} fechada por TIMEOUT do QR. Não será reconectada.`
@@ -270,14 +292,16 @@ export class WhatsAppService {
 
         this.connections.delete(connectionId);
         this.connectionStatus.set(connectionId, status);
+        // 🔒 Garante liberação do lock
+        this.connectionLocks.delete(connectionId);
         return;
       }
 
-      // 🔑 Forçar parada definitiva em erros críticos
+      // Forçar parada definitiva em erros críticos
       if (
         errorCode === DisconnectReason.badSession ||
         errorCode === DisconnectReason.forbidden ||
-        error?.message?.includes("405") // fallback
+        error?.message?.includes("405")
       ) {
         status.status = "error";
         status.error = "Sessão inválida ou número proibido";
@@ -286,7 +310,9 @@ export class WhatsAppService {
         );
         await this.removeConnection(connectionId);
         this.connectionStatus.set(connectionId, status);
-        return; // 🔑 não tenta reconectar
+        // 🔒 Garante liberação do lock
+        this.connectionLocks.delete(connectionId);
+        return;
       }
 
       this.connectionStatus.set(connectionId, status);
