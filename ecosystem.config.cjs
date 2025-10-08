@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: "api-baileys",
-      script: "tsx",
-      args: "src/server.ts",
+      script: "node",
+      args: ["--import", "tsx", "src/server.ts"],
       watch: false,
       autorestart: true,
       max_restarts: 5,
