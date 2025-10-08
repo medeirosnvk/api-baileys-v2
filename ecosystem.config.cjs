@@ -2,9 +2,9 @@ module.exports = {
   apps: [
     {
       name: "api-baileys",
-      script: "tsx",
-      args: "src/server.ts",
-      watch: false, // sem watch em produção
+      script: "./node_modules/.bin/tsx", // garante uso do TSX local
+      args: "src/server.ts", // caminho do seu servidor TS
+      watch: false,
       autorestart: true,
       max_restarts: 10,
       restart_delay: 5000,
