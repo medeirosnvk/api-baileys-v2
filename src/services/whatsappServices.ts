@@ -279,7 +279,7 @@ export class WhatsAppService {
 
       Logger.warn(
         `Conexão ${connectionId} fechada. Código: ${errorCode}`,
-        error
+        error.message
       );
 
       status = this.connectionStatus.get(connectionId);
@@ -344,7 +344,7 @@ export class WhatsAppService {
         this.reconnectAttempts.set(connectionId, attempts + 1);
 
         Logger.warn(
-          `⚠️ Erro reconectável (${errorCode}) em ${connectionId}. Tentativa ${
+          `⚠️  Erro reconectável (${errorCode}) em ${connectionId}. Tentativa ${
             attempts + 1
           }/${this.MAX_RECONNECT_ATTEMPTS}`
         );
@@ -381,6 +381,10 @@ export class WhatsAppService {
       }
 
       // Outros erros genéricos
+      if (error?.message?.includes("SessionEntry")) {
+        Logger.warn(`sessão E2E foi encerrada e será recriada. Ignorando...`);
+      }
+
       this.connectionStatus.set(connectionId, status);
     } else if (connection === "open") {
       status.status = "connected";
