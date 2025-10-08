@@ -4,13 +4,14 @@ module.exports = {
       name: "api-baileys",
       script: "npm",
       args: "run start",
+      cwd: "/home/deploy/api-baileys-v2", // 👈 caminho absoluto da pasta do projeto
       watch: false,
-      autorestart: true, // Reinicia automaticamente se cair
-      max_restarts: 10, // Máximo de tentativas de restart
-      restart_delay: 5000, // Delay entre reinícios (ms)
-      error_file: "./logs/err.log", // Log de erros
-      out_file: "./logs/out.log", // Log de saída
-      combine_logs: true, // Junta logs
+      autorestart: true,
+      max_restarts: 10,
+      restart_delay: 5000,
+      error_file: "./logs/err.log",
+      out_file: "./logs/out.log",
+      combine_logs: true,
       log_date_format: "YYYY-MM-DD HH:mm:ss",
     },
   ],
