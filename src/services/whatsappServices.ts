@@ -26,6 +26,7 @@ export class WhatsAppService {
 
   // 🔄 Controle de tentativas de reconexão
   private reconnectAttempts = new Map<string, number>();
+  private qrLocks: Map<string, boolean> = new Map();
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
 
   constructor() {
@@ -103,6 +104,12 @@ export class WhatsAppService {
       }
     }
 
+    // 🛠️ Nova verificação para reconexões
+    if (isReconnection && existingStatus?.status === "connecting") {
+      Logger.info(`Reconexão ignorada: ${connectionId} ainda está conectando.`);
+      return existingStatus;
+    }
+
     // Cria a promise e armazena antes de iniciar o processo
     const connectionPromise = this._createConnectionInternal(
       connectionId,
@@ -125,6 +132,18 @@ export class WhatsAppService {
   ): Promise<ConnectionStatus> {
     // Ativa o lock
     this.connectionLocks.set(connectionId, true);
+
+    // 🛠️ Proteção extra: se já existir um socket ativo, aborta
+    if (this.connections.has(connectionId)) {
+      Logger.warn(
+        `_createConnectionInternal abortado: socket já existe para ${connectionId}`
+      );
+      this.connectionLocks.delete(connectionId);
+      return this.connectionStatus.get(connectionId)!;
+    }
+
+    // 🛠️ Debounce: aguarda 500ms antes de criar o socket (evita reentradas rápidas)
+    await new Promise((r) => setTimeout(r, 500));
 
     try {
       // Se for reconexão, limpar conexão existente apenas se não estiver "connecting"
@@ -186,8 +205,12 @@ export class WhatsAppService {
       socket.ev.on("connection.update", async (update) => {
         const { qr, connection } = update;
 
-        if (qr && !qrShown) {
+        if (qr && !qrShown && !this.qrLocks.get(connectionId)) {
           qrShown = true;
+
+          // 🛠️ Ativa o lock global de QR
+          this.qrLocks.set(connectionId, true);
+
           Logger.info(`QR Code gerado para conexão ${connectionId}`);
           qrcode.generate(qr, { small: true });
 
@@ -197,6 +220,7 @@ export class WhatsAppService {
             );
             socket.end(undefined);
             this.connections.delete(connectionId);
+            this.qrLocks.delete(connectionId); // 🛠️ Libera o lock global de QR
 
             const timeoutStatus = this.connectionStatus.get(connectionId);
             if (timeoutStatus) {
@@ -214,6 +238,10 @@ export class WhatsAppService {
           clearTimeout(qrTimeout);
           qrTimeout = null;
           Logger.info(`Conexão estabelecida com sucesso: ${connectionId}`);
+
+          // 🛠️ Libera o lock global de QR
+          this.qrLocks.delete(connectionId);
+
           // 🔒 Libera o lock quando conectar com sucesso
           this.connectionLocks.delete(connectionId);
         }
@@ -222,6 +250,10 @@ export class WhatsAppService {
           clearTimeout(qrTimeout);
           qrTimeout = null;
           Logger.warn(`Conexão encerrada antes de autenticar: ${connectionId}`);
+
+          // 🛠️ Libera o lock global de QR
+          this.qrLocks.delete(connectionId);
+
           // 🔒 Libera o lock quando fechar
           this.connectionLocks.delete(connectionId);
         }
