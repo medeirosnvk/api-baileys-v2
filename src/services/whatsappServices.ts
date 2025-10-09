@@ -71,6 +71,7 @@ export class WhatsAppService {
   ): Promise<ConnectionStatus> {
     // 🔒 PROTEÇÃO 1: Se já existe uma promise em andamento, retorna ela
     const existingPromise = this.connectionPromises.get(connectionId);
+
     if (existingPromise) {
       Logger.info(
         `Conexão ${connectionId} já está em processamento. Retornando promise existente.`
@@ -83,6 +84,7 @@ export class WhatsAppService {
       Logger.warn(
         `Tentativa de criar conexão ${connectionId} enquanto outra está em andamento. Ignorando.`
       );
+
       const status = this.connectionStatus.get(connectionId);
       if (status) return status;
 
@@ -462,9 +464,13 @@ export class WhatsAppService {
 
       // Remove auth files
       const authPath = path.join(this.authDir, connectionId);
+
       if (await fs.pathExists(authPath)) {
         await fs.remove(authPath);
       }
+
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
 
       // Remove QR code image
       const qrPath = path.join(
