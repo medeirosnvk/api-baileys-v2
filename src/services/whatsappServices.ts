@@ -292,7 +292,6 @@ export class WhatsAppService {
     if (qr) {
       status.qrCode = qr;
       status.status = "connecting";
-      Logger.info(`QR Code gerado para conexão: ${connectionId}`);
 
       try {
         const qrDir = path.resolve(process.cwd(), "temp");
