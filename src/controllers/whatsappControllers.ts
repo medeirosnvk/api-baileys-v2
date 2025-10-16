@@ -121,8 +121,7 @@ export class WhatsAppController {
       );
 
       res.json({
-        success: true,
-        message: "Mensagem enviada com sucesso",
+        status: "PENDING",
       });
     } catch (error: any) {
       Logger.error("Erro ao enviar mensagem:", error);
