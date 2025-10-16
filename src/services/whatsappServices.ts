@@ -717,8 +717,13 @@ export class WhatsAppService {
     return this.connectionStatus.get(connectionId);
   }
 
-  getAllConnections(): ConnectionStatus[] {
-    return Array.from(this.connectionStatus.values());
+  getAllConnections() {
+    return Array.from(this.connectionStatus.values()).map((status) => ({
+      instance: {
+        instanceName: status.id, // mapeia o id da conexão
+        owner: status.phoneNumber, // mapeia o número pareado
+      },
+    }));
   }
 
   async getQRCodeImage(connectionId: string): Promise<Buffer | null> {
