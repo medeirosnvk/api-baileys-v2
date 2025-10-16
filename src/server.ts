@@ -64,8 +64,8 @@ app.use("*", (req, res) => {
 // Start server
 app.listen(PORT, () => {
   Logger.success(`🚀 Servidor rodando na porta ${PORT}`);
-  Logger.info(`📱 WhatsApp API disponível em http://localhost:${PORT}/`);
-  Logger.info(`💊 Health check disponível em http://localhost:${PORT}/status`);
+  Logger.info(`📱 API Baileys disponível em http://localhost:${PORT}/`);
+  Logger.info(`💊 Status disponível em http://localhost:${PORT}/status`);
 });
 
 // Graceful shutdown

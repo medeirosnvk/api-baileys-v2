@@ -183,7 +183,10 @@ export class WhatsAppService {
 
       const { state, saveCreds } = await useMultiFileAuthState(authPath);
 
+      const WHATSAPP_VERSION: [number, number, number] = [2, 3000, 1027934701];
+
       const socket = makeWASocket({
+        version: WHATSAPP_VERSION,
         auth: state,
         logger: pino({ level: "silent" }),
       });
@@ -193,7 +196,7 @@ export class WhatsAppService {
       const status: ConnectionStatus = {
         id: connectionId,
         status: "connecting",
-        lastSeen: new Date(),
+        createdAt: new Date(),
       };
 
       this.connectionStatus.set(connectionId, status);
@@ -204,7 +207,7 @@ export class WhatsAppService {
 
       socket.ev.on("creds.update", saveCreds);
 
-      socket.ev.on("connection.update", async (update) => {
+      socket.ev.on("connection.update", async (update: any) => {
         const { qr, connection } = update;
 
         if (qr && !qrShown && !this.qrLocks.get(connectionId)) {
@@ -263,7 +266,7 @@ export class WhatsAppService {
         await this.handleConnectionUpdate(connectionId, update);
       });
 
-      socket.ev.on("messages.upsert", (messageUpdate) => {
+      socket.ev.on("messages.upsert", (messageUpdate: any) => {
         this.handleIncomingMessage(connectionId, messageUpdate);
       });
 
@@ -312,7 +315,7 @@ export class WhatsAppService {
 
       Logger.warn(
         `Conexão ${connectionId} fechada. Código: ${errorCode}`,
-        error.message
+        error
       );
 
       status = this.connectionStatus.get(connectionId);
@@ -423,7 +426,7 @@ export class WhatsAppService {
       status.status = "connected";
       status.qrCode = undefined;
       status.error = undefined;
-      status.lastSeen = new Date();
+      status.createdAt = new Date();
 
       const socket = this.connections.get(connectionId);
       if (socket?.user?.id) {
@@ -717,18 +720,34 @@ export class WhatsAppService {
 
   async getQRCodeImage(connectionId: string): Promise<Buffer | null> {
     try {
-      // Caminho absoluto da pasta temp
-      const qrPath = path.join(
-        "/home/deploy/api-baileys/temp",
-        `${connectionId}.png`
-      );
-
-      if (await fs.pathExists(qrPath)) {
-        return await fs.readFile(qrPath);
+      // 🔒 Validação básica
+      if (!connectionId || typeof connectionId !== "string") {
+        Logger.error("❌ connectionId inválido:", connectionId);
+        return null;
       }
 
-      Logger.warn(`QR Code não encontrado em: ${qrPath}`);
-      return null;
+      // 📁 Caminho dinâmico compatível com local e produção
+      const tempDir =
+        process.env.QR_TEMP_DIR || path.resolve(process.cwd(), "temp");
+      await fs.ensureDir(tempDir);
+
+      const qrPath = path.join(tempDir, `${connectionId}.png`);
+
+      // 🔍 Verifica se o caminho existe
+      if (!(await fs.pathExists(qrPath))) {
+        Logger.warn(`⚠️ QR Code não encontrado em: ${qrPath}`);
+        return null;
+      }
+
+      // 🧩 Garante que o caminho é um arquivo (não uma pasta)
+      const stats = await fs.stat(qrPath);
+      if (!stats.isFile()) {
+        Logger.error(`❌ O caminho não é um arquivo: ${qrPath}`);
+        return null;
+      }
+
+      // ✅ Retorna o Buffer da imagem PNG
+      return await fs.readFile(qrPath);
     } catch (error) {
       Logger.error("Erro ao obter QR Code:", error);
       return null;
@@ -737,19 +756,32 @@ export class WhatsAppService {
 
   async getQRCodeBase64(connectionId: string): Promise<string | null> {
     try {
-      // Caminho absoluto da pasta temp
-      const qrPath = path.join(
-        "/home/deploy/api-baileys/temp",
-        `${connectionId}.png`
-      );
-
-      if (await fs.pathExists(qrPath)) {
-        const buffer = await fs.readFile(qrPath);
-        return buffer.toString("base64"); // 🔑 converte para base64
+      if (!connectionId || typeof connectionId !== "string") {
+        Logger.error("❌ connectionId inválido:", connectionId);
+        return null;
       }
 
-      Logger.warn(`QR Code não encontrado em: ${qrPath}`);
-      return null;
+      const tempDir =
+        process.env.QR_TEMP_DIR || path.resolve(process.cwd(), "temp");
+      await fs.ensureDir(tempDir);
+
+      const qrPath = path.join(tempDir, `${connectionId}.png`);
+
+      // 🔎 Garante que o caminho existe e é um arquivo
+      if (!(await fs.pathExists(qrPath))) {
+        Logger.warn(`⚠️ QR Code não encontrado em: ${qrPath}`);
+        return null;
+      }
+
+      const stats = await fs.stat(qrPath);
+      if (!stats.isFile()) {
+        Logger.error(`❌ O caminho não é um arquivo: ${qrPath}`);
+        return null;
+      }
+
+      // 📄 Agora podemos ler com segurança
+      const buffer = await fs.readFile(qrPath);
+      return buffer.toString("base64");
     } catch (error) {
       Logger.error("Erro ao obter QR Code em Base64:", error);
       return null;
