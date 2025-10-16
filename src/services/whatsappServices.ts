@@ -431,12 +431,12 @@ export class WhatsAppService {
       status.createdAt = new Date();
 
       const socket = this.connections.get(connectionId);
-      console.log("socket OPEN -", socket);
 
       if (socket?.user?.id) {
-        status.phoneNumber = socket.user.id.split("@")[0]; // corrigido aqui
-        console.log("status.phoneNumber -", status.phoneNumber);
+        status.phoneNumber = socket.user.id.split("@")[0].split(":")[0];
       }
+
+      console.log("STATUS CONEXAO -", status);
 
       Logger.success(`Conexão ${connectionId} estabelecida com sucesso!`);
       this.connectionStatus.set(connectionId, status);
