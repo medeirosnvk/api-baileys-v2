@@ -36,9 +36,7 @@ export class WhatsAppController {
     try {
       const connections = this.whatsappService.getAllConnections();
 
-      res.json({
-        connections,
-      });
+      res.json(connections);
     } catch (error: any) {
       Logger.error("Erro ao obter conexões:", error);
       res.status(500).json({

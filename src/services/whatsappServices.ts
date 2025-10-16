@@ -117,6 +117,7 @@ export class WhatsAppService {
       connectionId,
       isReconnection
     );
+
     this.connectionPromises.set(connectionId, connectionPromise);
 
     try {
@@ -197,6 +198,7 @@ export class WhatsAppService {
         id: connectionId,
         status: "connecting",
         createdAt: new Date(),
+        phoneNumber: null,
       };
 
       this.connectionStatus.set(connectionId, status);
@@ -429,8 +431,11 @@ export class WhatsAppService {
       status.createdAt = new Date();
 
       const socket = this.connections.get(connectionId);
+      console.log("socket OPEN -", socket);
+
       if (socket?.user?.id) {
-        status.phoneNumber = socket.user.id.split(":")[0];
+        status.phoneNumber = socket.user.id.split("@")[0]; // corrigido aqui
+        console.log("status.phoneNumber -", status.phoneNumber);
       }
 
       Logger.success(`Conexão ${connectionId} estabelecida com sucesso!`);

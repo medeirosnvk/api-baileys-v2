@@ -9,7 +9,7 @@ export interface ConnectionStatus {
     | "loggedOut";
   qrCode?: string;
   connectionTimeout?: NodeJS.Timeout;
-  phoneNumber?: string;
+  phoneNumber?: string | null;
   createdAt?: Date;
   error?: string;
 }
