@@ -436,8 +436,6 @@ export class WhatsAppService {
         status.phoneNumber = socket.user.id.split("@")[0].split(":")[0];
       }
 
-      console.log("STATUS CONEXAO -", status);
-
       Logger.success(`Conexão ${connectionId} estabelecida com sucesso!`);
       this.connectionStatus.set(connectionId, status);
 
