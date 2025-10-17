@@ -814,7 +814,10 @@ export class WhatsAppService {
     }
 
     const normalized = normalizeBrazilianNumber(phoneNumber);
+    console.log("normalized:", normalized);
+
     const jid = `${normalized}@s.whatsapp.net`;
+    console.log("jid:", jid);
 
     try {
       const result = await socket.onWhatsApp(jid);
