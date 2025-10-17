@@ -56,7 +56,7 @@ router.post(
   whatsappController.sendMediaBase64.bind(whatsappController)
 );
 
-router.get(
+router.post(
   "/chat/whatsappNumbers/:instanceName",
   whatsappController.checkWhatsappNumber.bind(whatsappController)
 );
