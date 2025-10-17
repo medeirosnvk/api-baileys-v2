@@ -807,13 +807,15 @@ export class WhatsAppService {
       throw new Error("Conexão não encontrada");
     }
 
+    console.log("Socket user:", socket.user);
+
     const status = this.connectionStatus.get(connectionId);
 
     if (status?.status !== "connected") {
       throw new Error("Conexão não está ativa");
     }
 
-    const normalized = normalizeBrazilianNumber(phoneNumber);
+    const normalized = await normalizeBrazilianNumber(phoneNumber);
     console.log("normalized:", normalized);
 
     const jid = `${normalized}@s.whatsapp.net`;
