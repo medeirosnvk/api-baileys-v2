@@ -242,4 +242,31 @@ export class WhatsAppController {
       });
     }
   }
+
+  async checkWhatsappNumber(req: Request, res: Response) {
+    try {
+      const { instanceName } = req.params;
+      const { numbers } = req.body;
+      const phoneNumber = numbers[0];
+
+      if (!instanceName || !phoneNumber) {
+        return res
+          .status(400)
+          .send("instanceName e phoneNumber são obrigatórios");
+      }
+
+      const result = await this.whatsappService.checkWhatsappNumber(
+        instanceName,
+        phoneNumber
+      );
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      Logger.error("Erro ao verificar número WhatsApp:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Erro interno do servidor",
+      });
+    }
+  }
 }

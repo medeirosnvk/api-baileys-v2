@@ -14,6 +14,7 @@ import { ConnectionStatus } from "../types/index.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
+import { normalizeBrazilianNumber } from "../utils/validateAndFormatNumber.js";
 
 export class WhatsAppService {
   private connections = new Map<string, WASocket>();
@@ -792,6 +793,47 @@ export class WhatsAppService {
       return buffer.toString("base64");
     } catch (error) {
       Logger.error("Erro ao obter QR Code em Base64:", error);
+      return null;
+    }
+  }
+
+  async checkWhatsappNumber(
+    connectionId: string,
+    phoneNumber: string
+  ): Promise<any | null> {
+    const socket = this.connections.get(connectionId);
+
+    if (!socket) {
+      throw new Error("Conexão não encontrada");
+    }
+
+    const status = this.connectionStatus.get(connectionId);
+
+    if (status?.status !== "connected") {
+      throw new Error("Conexão não está ativa");
+    }
+
+    const normalized = normalizeBrazilianNumber(phoneNumber);
+    const jid = `${normalized}@s.whatsapp.net`;
+
+    try {
+      const result = await socket.onWhatsApp(jid);
+      console.log("result:", result);
+
+      const exists = result?.[0]?.exists || false;
+      console.log("exists:", exists);
+
+      if (exists) {
+        return {
+          exists: true,
+        };
+      } else {
+        return {
+          exists: false,
+        };
+      }
+    } catch (error) {
+      console.error("Erro ao verificar número:", error);
       return null;
     }
   }
