@@ -252,7 +252,7 @@ export class WhatsAppController {
       if (!instanceName || !phoneNumber) {
         return res
           .status(400)
-          .send("instanceName e phoneNumber são obrigatórios");
+          .json("instanceName e phoneNumber são obrigatórios");
       }
 
       const result = await this.whatsappService.checkWhatsappNumber(
