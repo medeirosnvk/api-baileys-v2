@@ -807,8 +807,6 @@ export class WhatsAppService {
       throw new Error("Conexão não encontrada");
     }
 
-    console.log("Socket user:", socket.user);
-
     const status = this.connectionStatus.get(connectionId);
 
     if (status?.status !== "connected") {
@@ -816,26 +814,25 @@ export class WhatsAppService {
     }
 
     const normalized = await normalizeBrazilianNumber(phoneNumber);
-    console.log("normalized:", normalized);
 
     const jid = `${normalized}@s.whatsapp.net`;
-    console.log("jid:", jid);
 
     try {
       const result = await socket.onWhatsApp(jid);
-      console.log("result:", result);
-
       const exists = result?.[0]?.exists || false;
-      console.log("exists:", exists);
 
       if (exists) {
-        return {
-          exists: true,
-        };
+        return [
+          {
+            exists: true,
+          },
+        ];
       } else {
-        return {
-          exists: false,
-        };
+        return [
+          {
+            exists: false,
+          },
+        ];
       }
     } catch (error) {
       console.error("Erro ao verificar número:", error);
