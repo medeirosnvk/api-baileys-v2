@@ -678,7 +678,7 @@ export class WhatsAppService {
         case "document":
           messageContent = {
             document: mediaBuffer,
-            fileName: "documento.pdf",
+            fileName: fileName,
             caption,
           };
           break;
@@ -697,7 +697,7 @@ export class WhatsAppService {
         case "application/pdf":
           messageContent = {
             document: mediaBuffer,
-            fileName: "documento.pdf",
+            fileName: fileName,
             caption,
           };
           break;
