@@ -150,8 +150,7 @@ export class WhatsAppController {
       );
 
       res.json({
-        success: true,
-        message: "Mídia enviada com sucesso",
+        status: "PENDING",
       });
     } catch (error: any) {
       Logger.error("Erro ao enviar mídia:", error);
@@ -183,8 +182,7 @@ export class WhatsAppController {
       );
 
       res.json({
-        success: true,
-        message: "Mídia (base64) enviada com sucesso",
+        status: "PENDING",
       });
     } catch (error: any) {
       Logger.error("Erro ao enviar mídia base64:", error);
