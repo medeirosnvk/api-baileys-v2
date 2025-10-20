@@ -15,6 +15,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import { normalizeBrazilianNumber } from "../utils/validateAndFormatNumber.js";
+import { executeQuery } from "../config/database/dbConfig.js";
+import { formatPhoneNumber } from "../utils/formatProne.js";
+import axios from "axios";
 
 export class WhatsAppService {
   private connections = new Map<string, WASocket>();
@@ -445,16 +448,108 @@ export class WhatsAppService {
     }
   }
 
-  private handleIncomingMessage(connectionId: string, messageUpdate: any) {
-    const messages = messageUpdate.messages;
+  private async handleIncomingMessage(
+    connectionId: string,
+    messageUpdate: any
+  ) {
+    const { type, messages } = messageUpdate;
 
-    for (const message of messages) {
-      if (message.key.fromMe) continue;
+    let mediaName = "";
+    let mediaUrl = "";
+    let mediaBase64 = "";
+    let ticketId = "";
+    let bot_idstatus = "";
 
-      Logger.info(`Mensagem recebida na conexão ${connectionId}:`, {
-        from: message.key.remoteJid,
-        message: message.message?.conversation || "Mídia/Outros",
-      });
+    const port = process.env.PORT;
+    const urlHostIP = process.env.HOST_IP;
+    const urlWebhookMedia = `${urlHostIP}:${port}`;
+
+    if (type !== "notify" || !messages) {
+      for (const message of messages) {
+        if (message.key.fromMe) continue;
+
+        console.log("message", message);
+
+        Logger.info(`Mensagem recebida na conexão ${connectionId}:`, {
+          from: message.key.remoteJid,
+          message: message.message?.conversation || "Mídia/Outros",
+        });
+
+        const responseStatusUrlWebhook = await executeQuery(
+          `SELECT webhook, ativa_bot FROM codechat_hosts ch WHERE nome='${urlWebhookMedia}'`
+        );
+
+        const firstRow = Array.isArray(responseStatusUrlWebhook)
+          ? responseStatusUrlWebhook[0]
+          : (responseStatusUrlWebhook as any)?.rows?.[0];
+
+        const { webhook, ativa_bot } = firstRow || {};
+        const fromPhoneNumber = formatPhoneNumber(message.from);
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+
+        // if (message.hasMedia) {
+        //   try {
+        //     // Fazer o download da mídia
+        //     const media = await message.downloadMedia();
+        //     const mediaPath = path.join(
+        //       __dirname,
+        //       "../../media",
+        //       fromPhoneNumber
+        //     );
+
+        //     // Garantir que o diretório existe
+        //     if (!fs.existsSync(mediaPath)) {
+        //       fs.mkdirSync(mediaPath, { recursive: true });
+        //     }
+
+        //     // Definir o nome e o caminho do arquivo
+        //     const fileName = `${new Date().getTime()}.${
+        //       media.mimetype.split("/")[1]
+        //     }`;
+        //     const filePath = path.join(mediaPath, fileName);
+
+        //     // Salvar o arquivo e verificar se foi salvo corretamente
+        //     fs.writeFileSync(filePath, media.data, "base64");
+
+        //     if (fs.existsSync(filePath)) {
+        //       console.log(`Arquivo recebido e salvo em: ${filePath}`);
+        //       mediaName = fileName;
+        //       mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
+        //       mediaBase64 = media.data;
+        //     } else {
+        //       console.error(
+        //         `O arquivo não foi salvo corretamente em ${filePath}`
+        //       );
+        //     }
+        //   } catch (error) {
+        //     console.error(
+        //       `Erro ao processar mídia para a sessão ${connectionId}:`,
+        //       error
+        //     );
+        //   }
+        // }
+
+        // try {
+        //   await axios.post(webhook, {
+        //     connectionId,
+        //     message: {
+        //       ...message,
+        //       body: mediaName || message.body,
+        //       mediaName,
+        //       mediaUrl,
+        //       mediaBase64,
+        //     },
+        //   });
+        // } catch (error) {
+        //   console.error(
+        //     `Erro ao enviar dados para o webhook para a sessão ${connectionId}:`,
+        //     error
+        //   );
+        // }
+      }
+    } else {
+      Logger.info(`Atualização de mensagem ignorada:`, messageUpdate);
     }
   }
 
