@@ -629,7 +629,7 @@ export class WhatsAppService {
     to: string,
     base64: string,
     fileName: string,
-    mimeType: "image" | "document" | "video" | "audio",
+    mimeType: "image" | "document" | "video" | "audio" | "application/pdf",
     caption: string
   ): Promise<boolean> {
     try {
@@ -692,6 +692,12 @@ export class WhatsAppService {
           messageContent = {
             audio: mediaBuffer,
             mimetype: "audio/mp4",
+          };
+          break;
+        case "application/pdf":
+          messageContent = {
+            audio: mediaBuffer,
+            mimetype: "documento.pdf",
           };
           break;
         default:
