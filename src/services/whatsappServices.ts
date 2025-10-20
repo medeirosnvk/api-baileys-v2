@@ -696,8 +696,9 @@ export class WhatsAppService {
           break;
         case "application/pdf":
           messageContent = {
-            audio: mediaBuffer,
-            mimetype: "documento.pdf",
+            document: mediaBuffer,
+            fileName: "documento.pdf",
+            caption,
           };
           break;
         default:
