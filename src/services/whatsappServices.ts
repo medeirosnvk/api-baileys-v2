@@ -595,7 +595,7 @@ export class WhatsAppService {
               body:
                 message.message?.conversation ||
                 message.message?.extendedTextMessage?.text ||
-                "",
+                mediaName,
               timestamp:
                 message.messageTimestamp?.low || Math.floor(Date.now() / 1000),
               mediaUrl: mediaUrl || "",
