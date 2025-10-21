@@ -585,7 +585,7 @@ export class WhatsAppService {
             : socket?.user?.id ?? message.key.remoteJid;
 
           const payload = {
-            sessionName: "COBRANCE2024",
+            sessionName: connectionId,
             message: {
               _data: {
                 from: message.key.remoteJid,

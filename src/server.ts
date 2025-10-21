@@ -21,7 +21,10 @@ const __dirname = path.dirname(__filename);
 
 // Ensure temp directory exists
 const tempDir = path.join(__dirname, "../temp");
+const mediaDir = path.join(__dirname, "../media");
+
 fs.ensureDirSync(tempDir);
+fs.ensureDirSync(mediaDir);
 
 // Routes
 app.use("/", whatsappRoutes);
@@ -60,6 +63,9 @@ app.use("*", (req, res) => {
     message: "Rota não encontrada",
   });
 });
+
+// Static files (if needed)
+app.use("/media", express.static(mediaDir));
 
 // Start server
 app.listen(PORT, () => {
