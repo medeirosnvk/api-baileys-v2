@@ -463,14 +463,20 @@ export class WhatsAppService {
     const port = process.env.PORT;
     const urlHostIP = process.env.HOST_IP;
     const urlWebhookMedia = `${urlHostIP}:${port}`;
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
 
     if (type === "notify") {
       for (const message of messages) {
-        if (message.key.fromMe) continue;
+        const me = message.key.fromMe;
+        const from = message.key.remoteJid;
+        const messageContent = message.message;
+
+        if (me) continue;
 
         Logger.info(`Mensagem recebida na conexão ${connectionId}:`, {
-          from: message.key.remoteJid,
-          message: message.message?.conversation || "Mídia/Outros",
+          from: from,
+          message: messageContent?.conversation || "Mídia/Outros",
         });
 
         const responseStatusUrlWebhook = await executeQuery(
@@ -482,9 +488,7 @@ export class WhatsAppService {
           : (responseStatusUrlWebhook as any)?.rows?.[0];
 
         const { webhook, ativa_bot } = firstRow || {};
-        const fromPhoneNumber = formatPhoneNumber(message.from);
-        const __filename = fileURLToPath(import.meta.url);
-        const __dirname = path.dirname(__filename);
+        const fromPhoneNumber = formatPhoneNumber(from);
 
         if (message.hasMedia) {
           try {
