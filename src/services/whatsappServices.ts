@@ -17,7 +17,7 @@ import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import { normalizeBrazilianNumber } from "../utils/validateAndFormatNumber.js";
 import { executeQuery } from "../config/database/dbConfig.js";
-import { formatPhoneNumber } from "../utils/formatProne.js";
+import { cleanNumber, formatPhoneNumber } from "../utils/formatProne.js";
 import axios from "axios";
 
 export class WhatsAppService {
@@ -549,7 +549,7 @@ export class WhatsAppService {
 
             if (await fs.pathExists(filePath)) {
               const stats = await fs.stat(filePath);
-              Logger.info(`✅ Arquivo salvo: ${filePath}`);
+              Logger.info(`✅ Arquivo salvo em: ${filePath}`);
 
               mediaName = fileName;
               mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
@@ -588,8 +588,8 @@ export class WhatsAppService {
             sessionName: connectionId,
             message: {
               _data: {
-                from: message.key.remoteJid,
-                to: toJid,
+                from: cleanNumber(message.key.remoteJid),
+                to: cleanNumber(toJid),
               },
               id: { id: message.key.id },
               body:

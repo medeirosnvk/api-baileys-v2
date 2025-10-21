@@ -12,3 +12,7 @@ export function formatPhoneNumber(phoneNumber: string) {
     return ""; // Ou outra ação apropriada, dependendo do seu caso
   }
 }
+
+export function cleanNumber(jid: string = ""): string {
+  return jid.replace(/[:@].*$/, ""); // remove tudo após ":" ou "@"
+}
