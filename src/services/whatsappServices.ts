@@ -482,12 +482,20 @@ export class WhatsAppService {
         const responseStatusUrlWebhook = await executeQuery(
           `SELECT webhook, ativa_bot FROM codechat_hosts ch WHERE nome='${urlWebhookMedia}'`
         );
+        console.log("responseStatusUrlWebhook:", responseStatusUrlWebhook);
 
         const firstRow = Array.isArray(responseStatusUrlWebhook)
           ? responseStatusUrlWebhook[0]
           : (responseStatusUrlWebhook as any)?.rows?.[0];
 
+        console.log("firstRow:", firstRow);
+
         const { webhook, ativa_bot } = firstRow || {};
+
+        console.log("webhook:", webhook);
+
+        return;
+
         const fromPhoneNumber = formatPhoneNumber(from);
 
         if (message.hasMedia) {
