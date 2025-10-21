@@ -9,7 +9,12 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
+
+if (!PORT) {
+  Logger.error("🚨 PORT não está definido nas variáveis de ambiente.");
+  process.exit(1);
+}
 
 // Middleware
 app.use(cors());
