@@ -489,6 +489,8 @@ export class WhatsAppService {
 
         const { webhook, ativa_bot } = firstRow || {};
 
+        console.log("webhook:", webhook);
+
         const fromPhoneNumber = formatPhoneNumber(from);
 
         if (message.hasMedia) {
