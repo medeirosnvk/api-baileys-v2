@@ -464,7 +464,7 @@ export class WhatsAppService {
     const urlHostIP = process.env.HOST_IP;
     const urlWebhookMedia = `${urlHostIP}:${port}`;
 
-    if (type !== "notify" || !messages) {
+    if (type === "notify") {
       for (const message of messages) {
         if (message.key.fromMe) continue;
 
