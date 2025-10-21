@@ -506,15 +506,11 @@ export class WhatsAppService {
           try {
             Logger.info(`📥 Processando mídia para a sessão ${connectionId}`);
 
-            // Captura o conteúdo específico da mensagem (imageMessage, documentMessage etc.)
             const msgContent = message.message[messageType];
-
-            // Extrai mimetype e nome do arquivo, se existirem
             const mimeType = msgContent.mimetype || "application/octet-stream";
             const fileNameOriginal =
               msgContent.fileName || `${Date.now()}.${mimeType.split("/")[1]}`;
 
-            // Faz o download da mídia (retorna Buffer)
             const mediaBuffer = await downloadMediaMessage(
               message,
               "buffer",
@@ -533,19 +529,11 @@ export class WhatsAppService {
               }
             );
 
-            // Determinar extensão
             let ext = mimeType.split("/")[1] || "bin";
             if (ext.includes("jpeg")) ext = "jpg";
             if (ext.includes("javascript")) ext = "js";
             if (mimeType === "application/pdf") ext = "pdf";
 
-            // Determinar tipo geral
-            let mediaType = "document";
-            if (mimeType.startsWith("image/")) mediaType = "image";
-            else if (mimeType.startsWith("video/")) mediaType = "video";
-            else if (mimeType.startsWith("audio/")) mediaType = "audio";
-
-            // Caminho e salvamento do arquivo
             const mediaPath = path.join(
               __dirname,
               "../../media",
@@ -555,23 +543,19 @@ export class WhatsAppService {
 
             const fileName = `${Date.now()}.${ext}`;
             const filePath = path.join(mediaPath, fileName);
-
             await fs.writeFile(filePath, mediaBuffer);
 
             const base64Data = mediaBuffer.toString("base64");
 
-            // Confirmação do arquivo salvo
             if (await fs.pathExists(filePath)) {
               const stats = await fs.stat(filePath);
-              Logger.info(`✅ Arquivo salvo em: ${filePath}`);
+              Logger.info(`✅ Arquivo salvo: ${filePath}`);
 
               mediaName = fileName;
               mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
               mediaBase64 = base64Data;
 
-              // Adiciona informações de mídia no objeto message
               message.media = {
-                mediaType,
                 mimeType,
                 fileName,
                 fileSize: stats.size,
@@ -592,29 +576,40 @@ export class WhatsAppService {
         }
 
         try {
-          const payload: any = {
-            sessionName: connectionId,
+          // 🔧 Montagem manual do payload no formato WhatsApp Web.js
+          const remote = formatPhoneNumber(from);
+
+          // Proteção contra socket indefinido e socket.user indefinido
+          const toJid = message.key.fromMe
+            ? message.key.remoteJid
+            : socket?.user?.id ?? message.key.remoteJid;
+
+          const payload = {
+            sessionName: "COBRANCE2024",
             message: {
-              ...message,
-              body: messageContent || mediaName,
+              _data: {
+                from: message.key.remoteJid,
+                to: toJid,
+              },
+              id: { id: message.key.id },
+              body:
+                message.message?.conversation ||
+                message.message?.extendedTextMessage?.text ||
+                "",
+              timestamp:
+                message.messageTimestamp?.low || Math.floor(Date.now() / 1000),
+              mediaUrl: mediaUrl || "",
             },
           };
 
-          // Anexar dados de mídia, se houver
-          if (mediaName || mediaBase64 || mediaUrl || message.media) {
-            payload.message.media = {
-              mediaName: mediaName || message.media?.fileName,
-              mediaUrl: mediaUrl || message.media?.url,
-              mediaBase64: mediaBase64 || message.media?.base64,
-            };
-          }
-
           console.log(
-            "Payload final enviado ao webhook:",
+            "📦 Payload final enviado ao webhook:",
             JSON.stringify(payload, null, 2)
           );
 
-          await axios.post(webhook, payload);
+          await axios.post(webhook, payload, {
+            headers: { "Content-Type": "application/json" },
+          });
 
           Logger.success(
             `📤 Dados enviados para o webhook com sucesso (sessão ${connectionId})`
