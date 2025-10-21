@@ -4,6 +4,7 @@ import {
   DisconnectReason,
   useMultiFileAuthState,
   ConnectionState,
+  downloadMediaMessage,
 } from "@whiskeysockets/baileys";
 import pino from "pino";
 import { Boom } from "@hapi/boom";
@@ -457,8 +458,6 @@ export class WhatsAppService {
     let mediaName = "";
     let mediaUrl = "";
     let mediaBase64 = "";
-    let ticketId = "";
-    let bot_idstatus = "";
 
     const port = process.env.PORT;
     const urlHostIP = process.env.HOST_IP;
@@ -466,11 +465,14 @@ export class WhatsAppService {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
 
+    const socket = this.connections.get(connectionId);
+
     if (type === "notify") {
       for (const message of messages) {
         const me = message.key.fromMe;
         const from = message.key.remoteJid;
         const messageContent = message.message;
+        const messageType = Object.keys(messageContent)[0]; // ex: "imageMessage", "videoMessage", "documentMessage" etc.
 
         if (me) continue;
 
@@ -494,70 +496,80 @@ export class WhatsAppService {
         const fromPhoneNumber = formatPhoneNumber(from);
 
         if (
-          message.message?.imageMessage ||
-          message.message?.videoMessage ||
-          message.message?.audioMessage ||
-          message.message?.documentMessage
+          [
+            "imageMessage",
+            "videoMessage",
+            "documentMessage",
+            "audioMessage",
+          ].includes(messageType)
         ) {
           try {
-            // Fazer o download da mídia
-            const media = await message.downloadMedia();
-            console.log(`Mídia baixada para a sessão ${connectionId}:`, media);
+            Logger.info(`📥 Processando mídia para a sessão ${connectionId}`);
 
-            // Determinar mimeType e extensão
-            const mimeType: string =
-              media.mimetype || "application/octet-stream";
+            // Captura o conteúdo específico da mensagem (imageMessage, documentMessage etc.)
+            const msgContent = message.message[messageType];
+
+            // Extrai mimetype e nome do arquivo, se existirem
+            const mimeType = msgContent.mimetype || "application/octet-stream";
+            const fileNameOriginal =
+              msgContent.fileName || `${Date.now()}.${mimeType.split("/")[1]}`;
+
+            // Faz o download da mídia (retorna Buffer)
+            const mediaBuffer = await downloadMediaMessage(
+              message,
+              "buffer",
+              {},
+              {
+                logger: pino({ level: "silent" }),
+                reuploadRequest: async (msg: any) => {
+                  if (
+                    socket &&
+                    typeof socket.updateMediaMessage === "function"
+                  ) {
+                    return socket.updateMediaMessage(msg);
+                  }
+                  return msg;
+                },
+              }
+            );
+
+            // Determinar extensão
             let ext = mimeType.split("/")[1] || "bin";
-
-            // Normalizar extensões comuns
             if (ext.includes("jpeg")) ext = "jpg";
             if (ext.includes("javascript")) ext = "js";
-
-            // Se for pdf, forçar extensão pdf
             if (mimeType === "application/pdf") ext = "pdf";
 
-            // Classificar tipo geral (image, video, audio, document)
+            // Determinar tipo geral
             let mediaType = "document";
             if (mimeType.startsWith("image/")) mediaType = "image";
             else if (mimeType.startsWith("video/")) mediaType = "video";
             else if (mimeType.startsWith("audio/")) mediaType = "audio";
 
+            // Caminho e salvamento do arquivo
             const mediaPath = path.join(
               __dirname,
               "../../media",
               fromPhoneNumber
             );
-
-            // Garantir que o diretório existe
             await fs.ensureDir(mediaPath);
 
-            // Definir o nome e o caminho do arquivo
-            const fileName = `${new Date().getTime()}.${ext}`;
+            const fileName = `${Date.now()}.${ext}`;
             const filePath = path.join(mediaPath, fileName);
 
-            // media.data geralmente já é base64 (string) quando vindo do baileys
-            let base64Data: string;
-            if (typeof media.data === "string") {
-              base64Data = media.data;
-            } else if (Buffer.isBuffer(media.data)) {
-              base64Data = media.data.toString("base64");
-            } else {
-              // tentar converter caso venha em outro formato
-              base64Data = Buffer.from(media.data).toString("base64");
-            }
+            await fs.writeFile(filePath, mediaBuffer);
 
-            // Salvar o arquivo localmente
-            await fs.writeFile(filePath, Buffer.from(base64Data, "base64"));
+            const base64Data = mediaBuffer.toString("base64");
 
-            // Verificar se foi salvo corretamente
+            // Confirmação do arquivo salvo
             if (await fs.pathExists(filePath)) {
               const stats = await fs.stat(filePath);
-              console.log(`Arquivo recebido e salvo em: ${filePath}`);
+              Logger.info(`✅ Arquivo salvo em: ${filePath}`);
+
               mediaName = fileName;
               mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
               mediaBase64 = base64Data;
 
-              // anexar campos extras no message que será enviado ao webhook
+              // Adiciona informações de mídia no objeto message
               message.media = {
                 mediaType,
                 mimeType,
@@ -568,7 +580,7 @@ export class WhatsAppService {
               };
             } else {
               console.error(
-                `O arquivo não foi salvo corretamente em ${filePath}`
+                `❌ O arquivo não foi salvo corretamente em ${filePath}`
               );
             }
           } catch (error) {
@@ -588,7 +600,7 @@ export class WhatsAppService {
             },
           };
 
-          // Se temos dados de mídia, anexar campos adicionais
+          // Anexar dados de mídia, se houver
           if (mediaName || mediaBase64 || mediaUrl || message.media) {
             payload.message.media = {
               mediaName: mediaName || message.media?.fileName,
@@ -605,11 +617,11 @@ export class WhatsAppService {
           await axios.post(webhook, payload);
 
           Logger.success(
-            `Dados enviados para o webhook com sucesso para a sessão ${connectionId}`
+            `📤 Dados enviados para o webhook com sucesso (sessão ${connectionId})`
           );
         } catch (error: any) {
           Logger.error(
-            `Erro ao enviar dados para o webhook para a sessão ${connectionId}:`,
+            `❌ Erro ao enviar dados para o webhook (sessão ${connectionId}):`,
             error?.message || error
           );
         }
