@@ -488,65 +488,124 @@ export class WhatsAppService {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
 
-        // if (message.hasMedia) {
-        //   try {
-        //     // Fazer o download da mídia
-        //     const media = await message.downloadMedia();
-        //     const mediaPath = path.join(
-        //       __dirname,
-        //       "../../media",
-        //       fromPhoneNumber
-        //     );
+        if (message.hasMedia) {
+          try {
+            // Fazer o download da mídia
+            const media = await message.downloadMedia();
 
-        //     // Garantir que o diretório existe
-        //     if (!fs.existsSync(mediaPath)) {
-        //       fs.mkdirSync(mediaPath, { recursive: true });
-        //     }
+            // Determinar mimeType e extensão
+            const mimeType: string =
+              media.mimetype || "application/octet-stream";
+            let ext = mimeType.split("/")[1] || "bin";
 
-        //     // Definir o nome e o caminho do arquivo
-        //     const fileName = `${new Date().getTime()}.${
-        //       media.mimetype.split("/")[1]
-        //     }`;
-        //     const filePath = path.join(mediaPath, fileName);
+            // Normalizar extensões comuns
+            if (ext.includes("jpeg")) ext = "jpg";
+            if (ext.includes("javascript")) ext = "js";
 
-        //     // Salvar o arquivo e verificar se foi salvo corretamente
-        //     fs.writeFileSync(filePath, media.data, "base64");
+            // Se for pdf, forçar extensão pdf
+            if (mimeType === "application/pdf") ext = "pdf";
 
-        //     if (fs.existsSync(filePath)) {
-        //       console.log(`Arquivo recebido e salvo em: ${filePath}`);
-        //       mediaName = fileName;
-        //       mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
-        //       mediaBase64 = media.data;
-        //     } else {
-        //       console.error(
-        //         `O arquivo não foi salvo corretamente em ${filePath}`
-        //       );
-        //     }
-        //   } catch (error) {
-        //     console.error(
-        //       `Erro ao processar mídia para a sessão ${connectionId}:`,
-        //       error
-        //     );
-        //   }
-        // }
+            // Classificar tipo geral (image, video, audio, document)
+            let mediaType = "document";
+            if (mimeType.startsWith("image/")) mediaType = "image";
+            else if (mimeType.startsWith("video/")) mediaType = "video";
+            else if (mimeType.startsWith("audio/")) mediaType = "audio";
 
-        // try {
-        //   await axios.post(webhook, {
-        //     connectionId,
-        //     message: {
-        //       ...message,
-        //       body: mediaName || message.body,
-        //       mediaName,
-        //       mediaUrl,
-        //       mediaBase64,
-        //     },
-        //   });
-        // } catch (error) {
-        //   console.error(
-        //     `Erro ao enviar dados para o webhook para a sessão ${connectionId}:`,
-        //     error
-        //   );
-        // }
+            const mediaPath = path.join(
+              __dirname,
+              "../../media",
+              fromPhoneNumber
+            );
+
+            // Garantir que o diretório existe
+            await fs.ensureDir(mediaPath);
+
+            // Definir o nome e o caminho do arquivo
+            const fileName = `${new Date().getTime()}.${ext}`;
+            const filePath = path.join(mediaPath, fileName);
+
+            // media.data geralmente já é base64 (string) quando vindo do baileys
+            let base64Data: string;
+            if (typeof media.data === "string") {
+              base64Data = media.data;
+            } else if (Buffer.isBuffer(media.data)) {
+              base64Data = media.data.toString("base64");
+            } else {
+              // tentar converter caso venha em outro formato
+              base64Data = Buffer.from(media.data).toString("base64");
+            }
+
+            // Salvar o arquivo localmente
+            await fs.writeFile(filePath, Buffer.from(base64Data, "base64"));
+
+            // Verificar se foi salvo corretamente
+            if (await fs.pathExists(filePath)) {
+              const stats = await fs.stat(filePath);
+              console.log(`Arquivo recebido e salvo em: ${filePath}`);
+              mediaName = fileName;
+              mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
+              mediaBase64 = base64Data;
+
+              // Adicionar informações de mídia ao payload
+              ticketId = message?.key?.id || "";
+              bot_idstatus = "received";
+
+              // anexar campos extras no message que será enviado ao webhook
+              message.media = {
+                mediaType,
+                mimeType,
+                fileName,
+                fileSize: stats.size,
+                base64: base64Data,
+                url: mediaUrl,
+              };
+            } else {
+              console.error(
+                `O arquivo não foi salvo corretamente em ${filePath}`
+              );
+            }
+          } catch (error) {
+            console.error(
+              `Erro ao processar mídia para a sessão ${connectionId}:`,
+              error
+            );
+          }
+        }
+
+        try {
+          const payload: any = {
+            connectionId,
+            message: {
+              ...message,
+              body: mediaName || message.body,
+            },
+          };
+
+          // Se temos dados de mídia, anexar campos adicionais
+          if (mediaName || mediaBase64 || mediaUrl || message.media) {
+            payload.message.media = {
+              name: mediaName || message.media?.fileName,
+              url: mediaUrl || message.media?.url,
+              base64: mediaBase64 || message.media?.base64,
+              type:
+                message.media?.mediaType ||
+                (mediaName ? mediaName.split(".").pop() : undefined),
+              mimeType: message.media?.mimeType || undefined,
+              fileSize: message.media?.fileSize || undefined,
+            };
+          }
+
+          await axios.post(webhook, payload);
+        } catch (error: any) {
+          console.error(
+            `Erro ao enviar dados para o webhook para a sessão ${connectionId}:`,
+            error?.message || error
+          );
+          if (error?.response) {
+            console.error("Webhook response status:", error.response.status);
+            console.error("Webhook response data:", error.response.data);
+          }
+        }
       }
     } else {
       Logger.info(`Atualização de mensagem ignorada:`, messageUpdate);
