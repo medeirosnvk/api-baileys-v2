@@ -597,6 +597,14 @@ export class WhatsAppService {
             };
           }
 
+          console.log(
+            `Enviando dados para o webhook da sessão ${connectionId}:`,
+            {
+              webhook,
+              payload,
+            }
+          );
+
           await axios.post(webhook, payload);
 
           Logger.success(
