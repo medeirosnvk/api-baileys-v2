@@ -494,6 +494,7 @@ export class WhatsAppService {
           try {
             // Fazer o download da mídia
             const media = await message.downloadMedia();
+            console.log(`Mídia baixada para a sessão ${connectionId}:`, media);
 
             // Determinar mimeType e extensão
             const mimeType: string =
@@ -603,7 +604,7 @@ export class WhatsAppService {
             `Dados enviados para o webhook com sucesso para a sessão ${connectionId}`
           );
         } catch (error: any) {
-          console.error(
+          Logger.error(
             `Erro ao enviar dados para o webhook para a sessão ${connectionId}:`,
             error?.message || error
           );
