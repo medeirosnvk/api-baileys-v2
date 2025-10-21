@@ -468,23 +468,14 @@ export class WhatsAppService {
       for (const message of messages) {
         if (message.key.fromMe) continue;
 
-        console.log("message: ", message);
-        console.log("urlWebhookMedia: ", urlWebhookMedia);
-
         Logger.info(`Mensagem recebida na conexão ${connectionId}:`, {
           from: message.key.remoteJid,
           message: message.message?.conversation || "Mídia/Outros",
         });
 
-        console.log("urlWebhookMedia: ", urlWebhookMedia);
-
         const responseStatusUrlWebhook = await executeQuery(
           `SELECT webhook, ativa_bot FROM codechat_hosts ch WHERE nome='${urlWebhookMedia}'`
         );
-
-        console.log("responseStatusUrlWebhook: ", responseStatusUrlWebhook);
-
-        return;
 
         const firstRow = Array.isArray(responseStatusUrlWebhook)
           ? responseStatusUrlWebhook[0]
@@ -603,6 +594,10 @@ export class WhatsAppService {
           }
 
           await axios.post(webhook, payload);
+
+          Logger.success(
+            `Dados enviados para o webhook com sucesso para a sessão ${connectionId}`
+          );
         } catch (error: any) {
           console.error(
             `Erro ao enviar dados para o webhook para a sessão ${connectionId}:`,
