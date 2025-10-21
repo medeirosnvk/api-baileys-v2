@@ -576,24 +576,19 @@ export class WhatsAppService {
 
         try {
           const payload: any = {
-            connectionId,
+            sessionName: connectionId,
             message: {
               ...message,
-              body: mediaName || messageContent,
+              body: messageContent || mediaName,
             },
           };
 
           // Se temos dados de mídia, anexar campos adicionais
           if (mediaName || mediaBase64 || mediaUrl || message.media) {
-            payload.message.media = {
-              name: mediaName || message.media?.fileName,
-              url: mediaUrl || message.media?.url,
-              base64: mediaBase64 || message.media?.base64,
-              type:
-                message.media?.mediaType ||
-                (mediaName ? mediaName.split(".").pop() : undefined),
-              mimeType: message.media?.mimeType || undefined,
-              fileSize: message.media?.fileSize || undefined,
+            payload.message = {
+              mediaName: mediaName || message.media?.fileName,
+              mediaUrl: mediaUrl || message.media?.url,
+              mediaBase64: mediaBase64 || message.media?.base64,
             };
           }
 
