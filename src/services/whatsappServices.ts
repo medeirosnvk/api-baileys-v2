@@ -549,10 +549,6 @@ export class WhatsAppService {
               mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
               mediaBase64 = base64Data;
 
-              // Adicionar informações de mídia ao payload
-              ticketId = message?.key?.id || "";
-              bot_idstatus = "received";
-
               // anexar campos extras no message que será enviado ao webhook
               message.media = {
                 mediaType,
@@ -580,7 +576,7 @@ export class WhatsAppService {
             connectionId,
             message: {
               ...message,
-              body: mediaName || message.body,
+              body: mediaName || messageContent,
             },
           };
 
@@ -608,10 +604,6 @@ export class WhatsAppService {
             `Erro ao enviar dados para o webhook para a sessão ${connectionId}:`,
             error?.message || error
           );
-          if (error?.response) {
-            console.error("Webhook response status:", error.response.status);
-            console.error("Webhook response data:", error.response.data);
-          }
         }
       }
     } else {
