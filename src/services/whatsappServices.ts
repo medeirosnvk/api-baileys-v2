@@ -493,7 +493,12 @@ export class WhatsAppService {
 
         const fromPhoneNumber = formatPhoneNumber(from);
 
-        if (message.hasMedia) {
+        if (
+          message.message?.imageMessage ||
+          message.message?.videoMessage ||
+          message.message?.audioMessage ||
+          message.message?.documentMessage
+        ) {
           try {
             // Fazer o download da mídia
             const media = await message.downloadMedia();
@@ -585,7 +590,7 @@ export class WhatsAppService {
 
           // Se temos dados de mídia, anexar campos adicionais
           if (mediaName || mediaBase64 || mediaUrl || message.media) {
-            payload.message = {
+            payload.message.media = {
               mediaName: mediaName || message.media?.fileName,
               mediaUrl: mediaUrl || message.media?.url,
               mediaBase64: mediaBase64 || message.media?.base64,
@@ -593,11 +598,8 @@ export class WhatsAppService {
           }
 
           console.log(
-            `Enviando dados para o webhook da sessão ${connectionId}:`,
-            {
-              webhook,
-              payload,
-            }
+            "Payload final enviado ao webhook:",
+            JSON.stringify(payload, null, 2)
           );
 
           await axios.post(webhook, payload);
