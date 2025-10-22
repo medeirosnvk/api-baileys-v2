@@ -599,10 +599,10 @@ export class WhatsAppService {
             },
           };
 
-          console.log(
-            "📦 Payload final enviado ao webhook:",
-            JSON.stringify(payload, null, 2)
-          );
+          // console.log(
+          //   "📦 Payload final enviado ao webhook:",
+          //   JSON.stringify(payload, null, 2)
+          // );
 
           // Envia mensagem ao webhook
           await axios.post(webhook, payload, {
