@@ -609,7 +609,7 @@ export class WhatsAppService {
 
           Logger.success(
             `📤 Dados enviados para o webhook com sucesso pela sessão ${connectionId}, url: ${
-              mediaUrl || ""
+              mediaUrl || "(sem mídia)"
             })`
           );
         } catch (error: any) {
