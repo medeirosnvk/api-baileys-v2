@@ -508,7 +508,7 @@ export class WhatsAppService {
         // Se existir mídia, faz o download e salva
         if (hasMedia) {
           try {
-            Logger.info(`📥 Processando mídia para a sessão ${connectionId}`);
+            Logger.info(`⏳ Processando mídia para a sessão ${connectionId}`);
 
             const mediaBuffer = await downloadMediaMessage(
               message,
@@ -548,14 +548,15 @@ export class WhatsAppService {
             // Organiza o nome do arquivo
             const fileName = `${Date.now()}.${ext}`;
             const filePath = path.join(mediaPath, fileName);
-            await fs.writeFile(filePath, mediaBuffer);
 
-            // Converte para base64
-            const base64Data = mediaBuffer.toString("base64");
-
-            // Se o caminho existe, monta os dados da mídia
+            // Se o caminho existe, salva e monta os dados da mídia
             if (await fs.pathExists(filePath)) {
+              // Salva o arquivo no sistema
+              await fs.writeFile(filePath, mediaBuffer);
               Logger.info(`✅ Arquivo salvo em: ${filePath}`);
+
+              // Converte para base64
+              const base64Data = mediaBuffer.toString("base64");
 
               mediaName = fileName;
               mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
@@ -593,9 +594,7 @@ export class WhatsAppService {
                 mediaName,
               timestamp:
                 message.messageTimestamp?.low || Math.floor(Date.now() / 1000),
-              mediaName: mediaName || "",
               mediaUrl: mediaUrl || "",
-              mediaBase64: mediaBase64 || "",
             },
           };
 

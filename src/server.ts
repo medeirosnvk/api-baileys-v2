@@ -61,6 +61,9 @@ app.use(
   }
 );
 
+// Static files (if needed)
+app.use("/media", express.static(mediaDir));
+
 // 404 handler
 app.use("*", (req, res) => {
   res.status(404).json({
@@ -68,9 +71,6 @@ app.use("*", (req, res) => {
     message: "Rota não encontrada",
   });
 });
-
-// Static files (if needed)
-app.use("/media", express.static(mediaDir));
 
 // Start server
 app.listen(PORT, () => {
