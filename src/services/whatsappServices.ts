@@ -501,8 +501,6 @@ export class WhatsAppService {
 
         const { webhook, ativa_bot } = firstRow || {};
 
-        console.log("webhook:", webhook);
-
         const fromPhoneNumber = formatPhoneNumber(from);
 
         // Se existir mídia, faz o download e salva
