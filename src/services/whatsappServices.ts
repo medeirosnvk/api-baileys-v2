@@ -539,9 +539,16 @@ export class WhatsAppService {
             // Extrai extensão e nome do arquivo
             const msgContent = message.message[messageType];
             const mimeType = msgContent.mimetype || "application/octet-stream";
-            let ext = mimeType.split("/")[1] || "bin";
+
+            // Remove qualquer parâmetro extra como "; codecs=opus"
+            let cleanMime = mimeType.split(";")[0].trim();
+            let ext = cleanMime.split("/")[1] || "bin";
+
+            // Ajustes específicos
             if (ext.includes("jpeg")) ext = "jpg";
-            if (mimeType === "application/pdf") ext = "pdf";
+            if (cleanMime === "application/pdf") ext = "pdf";
+            if (cleanMime.startsWith("audio/ogg")) ext = "ogg";
+            if (cleanMime.startsWith("audio/mpeg")) ext = "mp3";
 
             // Organiza o nome do arquivo
             const fileName = `${Date.now()}.${ext}`;
