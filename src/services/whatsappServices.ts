@@ -455,6 +455,7 @@ export class WhatsAppService {
   ) {
     const { type, messages } = messageUpdate;
 
+    let payload = {};
     let mediaName = "";
     let mediaUrl = "";
     let mediaBase64 = "";
@@ -474,7 +475,16 @@ export class WhatsAppService {
         const messageContent = message.message;
         const messageType = Object.keys(messageContent)[0]; // ex: "imageMessage", "videoMessage", "documentMessage" etc.
 
+        const hasMedia =
+          messageContent.imageMessage || // imagem
+          messageContent.videoMessage || // video
+          messageContent.audioMessage || // audio
+          messageContent.documentMessage || // documento
+          messageContent.stickerMessage || // figurinha
+          messageContent.pttMessage; // voz
+
         if (me) continue;
+        if (!messageContent) continue;
 
         Logger.info(`Mensagem recebida na conexão ${connectionId}:`, {
           from: from,
@@ -495,21 +505,10 @@ export class WhatsAppService {
 
         const fromPhoneNumber = formatPhoneNumber(from);
 
-        if (
-          [
-            "imageMessage",
-            "videoMessage",
-            "documentMessage",
-            "audioMessage",
-          ].includes(messageType)
-        ) {
+        // Se existir mídia, faz o download e salva
+        if (hasMedia) {
           try {
             Logger.info(`📥 Processando mídia para a sessão ${connectionId}`);
-
-            const msgContent = message.message[messageType];
-            const mimeType = msgContent.mimetype || "application/octet-stream";
-            const fileNameOriginal =
-              msgContent.fileName || `${Date.now()}.${mimeType.split("/")[1]}`;
 
             const mediaBuffer = await downloadMediaMessage(
               message,
@@ -529,39 +528,38 @@ export class WhatsAppService {
               }
             );
 
-            let ext = mimeType.split("/")[1] || "bin";
-            if (ext.includes("jpeg")) ext = "jpg";
-            if (ext.includes("javascript")) ext = "js";
-            if (mimeType === "application/pdf") ext = "pdf";
-
+            // Caminho diretório
             const mediaPath = path.join(
               __dirname,
               "../../media",
               fromPhoneNumber
             );
+
+            // Verifica de o diretório existe, se não, cria
             await fs.ensureDir(mediaPath);
 
+            // Extrai extensão e nome do arquivo
+            const msgContent = message.message[messageType];
+            const mimeType = msgContent.mimetype || "application/octet-stream";
+            let ext = mimeType.split("/")[1] || "bin";
+            if (ext.includes("jpeg")) ext = "jpg";
+            if (mimeType === "application/pdf") ext = "pdf";
+
+            // Organiza o nome do arquivo
             const fileName = `${Date.now()}.${ext}`;
             const filePath = path.join(mediaPath, fileName);
             await fs.writeFile(filePath, mediaBuffer);
 
+            // Converte para base64
             const base64Data = mediaBuffer.toString("base64");
 
+            // Se o caminho existe, monta os dados da mídia
             if (await fs.pathExists(filePath)) {
-              const stats = await fs.stat(filePath);
               Logger.info(`✅ Arquivo salvo em: ${filePath}`);
 
               mediaName = fileName;
               mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
               mediaBase64 = base64Data;
-
-              message.media = {
-                mimeType,
-                fileName,
-                fileSize: stats.size,
-                base64: base64Data,
-                url: mediaUrl,
-              };
             } else {
               console.error(
                 `❌ O arquivo não foi salvo corretamente em ${filePath}`
@@ -576,15 +574,12 @@ export class WhatsAppService {
         }
 
         try {
-          // 🔧 Montagem manual do payload no formato WhatsApp Web.js
-          const remote = formatPhoneNumber(from);
-
           // Proteção contra socket indefinido e socket.user indefinido
           const toJid = message.key.fromMe
             ? message.key.remoteJid
             : socket?.user?.id ?? message.key.remoteJid;
 
-          const payload = {
+          payload = {
             sessionName: connectionId,
             message: {
               _data: {
@@ -598,7 +593,9 @@ export class WhatsAppService {
                 mediaName,
               timestamp:
                 message.messageTimestamp?.low || Math.floor(Date.now() / 1000),
+              mediaName: mediaName || "",
               mediaUrl: mediaUrl || "",
+              mediaBase64: mediaBase64 || "",
             },
           };
 
@@ -607,6 +604,7 @@ export class WhatsAppService {
             JSON.stringify(payload, null, 2)
           );
 
+          // Envia mensagem ao webhook
           await axios.post(webhook, payload, {
             headers: { "Content-Type": "application/json" },
           });
