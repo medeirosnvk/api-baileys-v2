@@ -608,7 +608,9 @@ export class WhatsAppService {
           });
 
           Logger.success(
-            `📤 Dados enviados para o webhook com sucesso (sessão ${connectionId})`
+            `📤 Dados enviados para o webhook com sucesso pela sessão ${connectionId}, url: ${
+              mediaUrl || ""
+            })`
           );
         } catch (error: any) {
           Logger.error(
