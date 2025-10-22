@@ -549,14 +549,15 @@ export class WhatsAppService {
             const fileName = `${Date.now()}.${ext}`;
             const filePath = path.join(mediaPath, fileName);
 
-            // Se o caminho existe, salva e monta os dados da mídia
-            if (await fs.pathExists(filePath)) {
-              // Salva o arquivo no sistema
-              await fs.writeFile(filePath, mediaBuffer);
-              Logger.info(`✅ Arquivo salvo em: ${filePath}`);
+            // Salva o arquivo no sistema
+            await fs.writeFile(filePath, mediaBuffer);
 
-              // Converte para base64
-              const base64Data = mediaBuffer.toString("base64");
+            // Converte para base64
+            const base64Data = mediaBuffer.toString("base64");
+
+            // Se o caminho existe, monta os dados da mídia
+            if (await fs.pathExists(filePath)) {
+              Logger.info(`✅ Arquivo salvo em: ${filePath}`);
 
               mediaName = fileName;
               mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
