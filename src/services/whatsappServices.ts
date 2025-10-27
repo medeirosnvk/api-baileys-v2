@@ -320,10 +320,7 @@ export class WhatsAppService {
       const error = lastDisconnect?.error as Boom;
       const errorCode = error?.output?.statusCode;
 
-      Logger.warn(
-        `Conexão ${connectionId} fechada. Código: ${errorCode}`,
-        error
-      );
+      Logger.warn(`Conexão ${connectionId} fechada. Código: ${errorCode}`);
 
       status = this.connectionStatus.get(connectionId);
       if (!status) return;
@@ -465,10 +462,6 @@ export class WhatsAppService {
     const urlWebhookMedia = `${urlHostIP}:${port}`;
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
-
-    console.log("port -", port);
-    console.log("urlHostIP -", urlHostIP);
-    console.log("urlWebhookMedia -", urlWebhookMedia);
 
     const socket = this.connections.get(connectionId);
 
@@ -681,7 +674,7 @@ export class WhatsAppService {
       Logger.success(`Conexão ${connectionId} removida com sucesso`);
       return true;
     } catch (error) {
-      Logger.error(`Erro ao remover conexão ${connectionId}:`, error);
+      Logger.error(`Erro ao remover conexão ${connectionId}:`);
       return false;
     }
   }
