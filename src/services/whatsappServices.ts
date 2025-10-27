@@ -466,6 +466,10 @@ export class WhatsAppService {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
 
+    console.log("port -", port);
+    console.log("urlHostIP -", urlHostIP);
+    console.log("urlWebhookMedia -", urlWebhookMedia);
+
     const socket = this.connections.get(connectionId);
 
     if (type === "notify") {
