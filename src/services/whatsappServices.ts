@@ -491,139 +491,150 @@ export class WhatsAppService {
           message: messageContent?.conversation || "Mídia/Outros",
         });
 
-        const responseStatusUrlWebhook = await executeQuery(
-          `SELECT webhook, ativa_bot FROM codechat_hosts ch WHERE nome='${urlWebhookMedia}'`
-        );
+        try {
+          const responseStatusUrlWebhook = await executeQuery(
+            `SELECT webhook, ativa_bot FROM codechat_hosts ch WHERE nome='${urlWebhookMedia}'`
+          );
 
-        const firstRow = Array.isArray(responseStatusUrlWebhook)
-          ? responseStatusUrlWebhook[0]
-          : (responseStatusUrlWebhook as any)?.rows?.[0];
+          const firstRow = Array.isArray(responseStatusUrlWebhook)
+            ? responseStatusUrlWebhook[0]
+            : (responseStatusUrlWebhook as any)?.rows?.[0];
 
-        const { webhook, ativa_bot } = firstRow || {};
+          const { webhook, ativa_bot } = firstRow || {};
 
-        const fromPhoneNumber = formatPhoneNumber(from);
+          const fromPhoneNumber = formatPhoneNumber(from);
 
-        // Se existir mídia, faz o download e salva
-        if (hasMedia) {
-          try {
-            Logger.info(`⏳ Processando mídia para a sessão ${connectionId}`);
+          // Se existir mídia, faz o download e salva
+          if (hasMedia) {
+            try {
+              Logger.info(`⏳ Processando mídia para a sessão ${connectionId}`);
 
-            const mediaBuffer = await downloadMediaMessage(
-              message,
-              "buffer",
-              {},
-              {
-                logger: pino({ level: "silent" }),
-                reuploadRequest: async (msg: any) => {
-                  if (
-                    socket &&
-                    typeof socket.updateMediaMessage === "function"
-                  ) {
-                    return socket.updateMediaMessage(msg);
-                  }
-                  return msg;
-                },
+              const mediaBuffer = await downloadMediaMessage(
+                message,
+                "buffer",
+                {},
+                {
+                  logger: pino({ level: "silent" }),
+                  reuploadRequest: async (msg: any) => {
+                    if (
+                      socket &&
+                      typeof socket.updateMediaMessage === "function"
+                    ) {
+                      return socket.updateMediaMessage(msg);
+                    }
+                    return msg;
+                  },
+                }
+              );
+
+              // Caminho diretório
+              const mediaPath = path.join(
+                __dirname,
+                "../../media",
+                fromPhoneNumber
+              );
+
+              // Verifica de o diretório existe, se não, cria
+              await fs.ensureDir(mediaPath);
+
+              // Extrai extensão e nome do arquivo
+              const msgContent = message.message[messageType];
+              const mimeType =
+                msgContent.mimetype || "application/octet-stream";
+
+              // Remove qualquer parâmetro extra como "; codecs=opus"
+              let cleanMime = mimeType.split(";")[0].trim();
+              let ext = cleanMime.split("/")[1] || "bin";
+
+              // Ajustes específicos
+              if (ext.includes("jpeg")) ext = "jpg";
+              if (cleanMime === "application/pdf") ext = "pdf";
+              if (cleanMime.startsWith("audio/ogg")) ext = "ogg";
+              if (cleanMime.startsWith("audio/mpeg")) ext = "mp3";
+
+              // Organiza o nome do arquivo
+              const fileName = `${Date.now()}.${ext}`;
+              const filePath = path.join(mediaPath, fileName);
+
+              // Salva o arquivo no sistema
+              await fs.writeFile(filePath, mediaBuffer);
+
+              // Converte para base64
+              const base64Data = mediaBuffer.toString("base64");
+
+              // Se o caminho existe, monta os dados da mídia
+              if (await fs.pathExists(filePath)) {
+                Logger.info(`✅ Arquivo salvo em: ${filePath}`);
+
+                mediaName = fileName;
+                mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
+                mediaBase64 = base64Data;
+              } else {
+                console.error(
+                  `❌ O arquivo não foi salvo corretamente em ${filePath}`
+                );
               }
-            );
-
-            // Caminho diretório
-            const mediaPath = path.join(
-              __dirname,
-              "../../media",
-              fromPhoneNumber
-            );
-
-            // Verifica de o diretório existe, se não, cria
-            await fs.ensureDir(mediaPath);
-
-            // Extrai extensão e nome do arquivo
-            const msgContent = message.message[messageType];
-            const mimeType = msgContent.mimetype || "application/octet-stream";
-
-            // Remove qualquer parâmetro extra como "; codecs=opus"
-            let cleanMime = mimeType.split(";")[0].trim();
-            let ext = cleanMime.split("/")[1] || "bin";
-
-            // Ajustes específicos
-            if (ext.includes("jpeg")) ext = "jpg";
-            if (cleanMime === "application/pdf") ext = "pdf";
-            if (cleanMime.startsWith("audio/ogg")) ext = "ogg";
-            if (cleanMime.startsWith("audio/mpeg")) ext = "mp3";
-
-            // Organiza o nome do arquivo
-            const fileName = `${Date.now()}.${ext}`;
-            const filePath = path.join(mediaPath, fileName);
-
-            // Salva o arquivo no sistema
-            await fs.writeFile(filePath, mediaBuffer);
-
-            // Converte para base64
-            const base64Data = mediaBuffer.toString("base64");
-
-            // Se o caminho existe, monta os dados da mídia
-            if (await fs.pathExists(filePath)) {
-              Logger.info(`✅ Arquivo salvo em: ${filePath}`);
-
-              mediaName = fileName;
-              mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
-              mediaBase64 = base64Data;
-            } else {
+            } catch (error) {
               console.error(
-                `❌ O arquivo não foi salvo corretamente em ${filePath}`
+                `Erro ao processar mídia para a sessão ${connectionId}:`,
+                error
               );
             }
-          } catch (error) {
-            console.error(
-              `Erro ao processar mídia para a sessão ${connectionId}:`,
-              error
-            );
           }
-        }
 
-        try {
-          // Proteção contra socket indefinido e socket.user indefinido
-          const toJid = message.key.fromMe
-            ? message.key.remoteJid
-            : socket?.user?.id ?? message.key.remoteJid;
+          try {
+            // Proteção contra socket indefinido e socket.user indefinido
+            const toJid = message.key.fromMe
+              ? message.key.remoteJid
+              : socket?.user?.id ?? message.key.remoteJid;
 
-          payload = {
-            sessionName: connectionId,
-            message: {
-              _data: {
-                from: cleanNumber(message.key.remoteJid),
-                to: cleanNumber(toJid),
+            payload = {
+              sessionName: connectionId,
+              message: {
+                _data: {
+                  from: cleanNumber(message.key.remoteJid),
+                  to: cleanNumber(toJid),
+                },
+                id: { id: message.key.id },
+                body:
+                  message.message?.conversation ||
+                  message.message?.extendedTextMessage?.text ||
+                  mediaName,
+                timestamp:
+                  message.messageTimestamp?.low ||
+                  Math.floor(Date.now() / 1000),
+                mediaUrl: mediaUrl || "",
               },
-              id: { id: message.key.id },
-              body:
-                message.message?.conversation ||
-                message.message?.extendedTextMessage?.text ||
-                mediaName,
-              timestamp:
-                message.messageTimestamp?.low || Math.floor(Date.now() / 1000),
-              mediaUrl: mediaUrl || "",
-            },
-          };
+            };
 
-          // console.log(
-          //   "📦 Payload final enviado ao webhook:",
-          //   JSON.stringify(payload, null, 2)
-          // );
+            // console.log(
+            //   "📦 Payload final enviado ao webhook:",
+            //   JSON.stringify(payload, null, 2)
+            // );
 
-          // Envia mensagem ao webhook
-          await axios.post(webhook, payload, {
-            headers: { "Content-Type": "application/json" },
-          });
+            // Envia mensagem ao webhook
+            await axios.post(webhook, payload, {
+              headers: { "Content-Type": "application/json" },
+            });
 
-          Logger.success(
-            `📤 Dados enviados para o webhook com sucesso pela sessão ${connectionId}, url: ${
-              mediaUrl || "(sem mídia)"
-            })`
-          );
+            Logger.success(
+              `📤 Dados enviados para o webhook com sucesso pela sessão ${connectionId}, url: ${
+                mediaUrl || "(sem mídia)"
+              })`
+            );
+          } catch (error: any) {
+            Logger.error(
+              `❌ Erro ao enviar dados para o webhook (sessão ${connectionId}):`,
+              error?.message || error
+            );
+            continue;
+          }
         } catch (error: any) {
           Logger.error(
-            `❌ Erro ao enviar dados para o webhook (sessão ${connectionId}):`,
+            `❌ Erro ao consultar webhook (sessão ${connectionId}):`,
             error?.message || error
           );
+          continue;
         }
       }
     } else {
