@@ -4,11 +4,11 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const defaultDbConfig = {
-  host: process.env.DB2_MY_SQL_HOST,
+  host: process.env.DB_MY_SQL_HOST,
   user: process.env.MY_SQL_USER,
-  password: process.env.DB2_MY_SQL_PASSWORD,
+  password: process.env.DB_MY_SQL_PASSWORD,
   port: process.env.MY_SQL_PORT,
-  database: process.env.DB2_MY_SQL_DATABASE,
+  database: process.env.DB_MY_SQL_DATABASE,
   connectionLimit: process.env.MY_SQL_CONNECTION_LIMIT,
   charset: process.env.MY_SQL_CHARSET,
 };
