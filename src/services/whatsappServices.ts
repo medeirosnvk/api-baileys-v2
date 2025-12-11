@@ -325,7 +325,7 @@ export class WhatsAppService {
       status = this.connectionStatus.get(connectionId);
       if (!status) return;
 
-      // Se foi encerrada por timeout do QR (408), não tenta reconectar
+      // Se foi encerrada por timeout do QR, não tenta reconectar
       if (errorCode === 408 || status.error === "timeout") {
         Logger.warn(
           `Conexão ${connectionId} fechada por TIMEOUT do QR. Não será reconectada.`
@@ -356,7 +356,18 @@ export class WhatsAppService {
         return;
       }
 
-      // 🧩 Lista de erros reconectáveis
+      // Número banido — encerrar definitivamente
+      if (error?.message?.includes("503") || errorCode === 428) {
+        status.status = "banned";
+        status.error = "Número banido";
+        Logger.error(`Encerrando conexão ${connectionId} por banimento (503)`);
+        await this.removeConnection(connectionId);
+        this.connectionStatus.set(connectionId, status);
+        this.connectionLocks.delete(connectionId);
+        return;
+      }
+
+      // Lista de erros reconectáveis
       const reconectaveis = [
         515, // Stream Error
         DisconnectReason.loggedOut,

@@ -6,7 +6,8 @@ export interface ConnectionStatus {
     | "disconnected"
     | "forbidden"
     | "error"
-    | "loggedOut";
+    | "loggedOut"
+    | "banned";
   qrCode?: string;
   connectionTimeout?: NodeJS.Timeout;
   phoneNumber: string | null;
