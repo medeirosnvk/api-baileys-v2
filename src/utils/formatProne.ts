@@ -14,5 +14,7 @@ export function formatPhoneNumber(phoneNumber: string) {
 }
 
 export function cleanNumber(jid: string = ""): string {
-  return jid.replace(/:\d+(?=@)/, ""); // remove ":números" apenas antes de "@"
+  if (!jid) return "";
+  const left = jid.split("@")[0];
+  return left.split(":")[0];
 }
