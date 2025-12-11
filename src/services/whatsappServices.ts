@@ -362,9 +362,9 @@ export class WhatsAppService {
         status.status = "banned";
         status.error = "Número banido";
         Logger.error(`Encerrando conexão ${connectionId} por banimento (503)`);
+        await this.removeConnection(connectionId);
         this.connectionStatus.set(connectionId, status);
         this.connectionLocks.delete(connectionId);
-        await this.removeConnection(connectionId);
         return;
       }
 
