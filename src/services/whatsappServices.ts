@@ -647,7 +647,7 @@ export class WhatsAppService {
         }
       }
     } else {
-      Logger.info(`Atualização de mensagem ignorada:`, messageUpdate);
+      Logger.info(`Atualização de mensagem ignorada.`);
     }
   }
 
