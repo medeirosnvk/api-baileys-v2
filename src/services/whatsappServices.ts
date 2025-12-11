@@ -1044,11 +1044,18 @@ export class WhatsAppService {
           },
         ];
       }
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("428")) {
-        console.error("Número nao cadastrado no whatsapp.");
+    } catch (error: any) {
+      const statusCode =
+        error?.output?.statusCode ||
+        error?.data?.statusCode ||
+        error?.output?.payload?.statusCode ||
+        null;
+
+      if (statusCode === 428) {
+        console.error("Número não cadastrado no whatsapp.");
         return null;
       }
+
       console.error("Erro ao verificar número:", error);
       return null;
     }
