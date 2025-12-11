@@ -664,7 +664,8 @@ export class WhatsAppService {
           await socket.logout();
         } catch (err) {
           Logger.warn(
-            `Falha ao executar logout da conexão ${connectionId}, prosseguindo com limpeza`
+            `Falha ao executar logout da conexão ${connectionId}, prosseguindo com limpeza...`,
+            err
           );
         }
       }
@@ -677,12 +678,14 @@ export class WhatsAppService {
       const authPath = path.join(this.authDir, connectionId);
       if (await fs.pathExists(authPath)) {
         await fs.remove(authPath);
+        Logger.success(`Pasta de autenticação removida: ${authPath}`);
       }
 
       // remove QR temporário
       const qrPath = path.join(__dirname, "../../temp", `${connectionId}.png`);
       if (await fs.pathExists(qrPath)) {
         await fs.remove(qrPath);
+        Logger.success(`QR Code temporário removido: ${qrPath}`);
       }
 
       Logger.success(`Conexão ${connectionId} removida com sucesso`);
