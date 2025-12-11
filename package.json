@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@types/axios": "^0.9.36",
-    "@whiskeysockets/baileys": "^6.7.20",
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "axios": "^1.12.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
