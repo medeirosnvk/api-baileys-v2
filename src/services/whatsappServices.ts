@@ -616,6 +616,9 @@ export class WhatsAppService {
               },
             };
 
+            console.log("payload", payload);
+            console.log("payload JSON", JSON.stringify(payload, null, 2));
+
             // console.log(
             //   "📦 Payload final enviado ao webhook:",
             //   JSON.stringify(payload, null, 2)
@@ -736,7 +739,10 @@ export class WhatsAppService {
       Logger.success(`Mensagem enviada para ${to} via ${connectionId}`);
       return true;
     } catch (error) {
-      Logger.error(`Erro ao enviar mensagem:`, error);
+      Logger.error(
+        `Erro ao enviar mensagem:`,
+        error instanceof Error ? error.message : String(error)
+      );
       throw error;
     }
   }
@@ -1039,6 +1045,10 @@ export class WhatsAppService {
         ];
       }
     } catch (error) {
+      if (error instanceof Error && error.message.includes("428")) {
+        console.error("Número nao cadastrado no whatsapp.");
+        return null;
+      }
       console.error("Erro ao verificar número:", error);
       return null;
     }
