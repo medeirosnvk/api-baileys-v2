@@ -597,16 +597,6 @@ export class WhatsAppService {
               ? message.key.remoteJid
               : socket?.user?.id ?? message.key.remoteJid;
 
-            console.log("socket?.user?.id", socket?.user?.id);
-            console.log("message.key", message.key);
-            console.log("toJid", toJid);
-
-            console.log(
-              "cleanNumber(message.key.remoteJid)",
-              cleanNumber(message.key.remoteJid)
-            );
-            console.log("cleanNumber(toJid)", cleanNumber(toJid));
-
             payload = {
               sessionName: connectionId,
               message: {
@@ -674,8 +664,7 @@ export class WhatsAppService {
           await socket.logout();
         } catch (err) {
           Logger.warn(
-            `Falha ao executar logout da conexão ${connectionId}, prosseguindo com limpeza...`,
-            err
+            `Falha ao executar logout da conexão ${connectionId}, prosseguindo com limpeza...`
           );
         }
       }
