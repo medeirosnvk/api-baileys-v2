@@ -655,30 +655,32 @@ export class WhatsAppService {
     try {
       const socket = this.connections.get(connectionId);
 
-      if (socket) {
-        await socket.logout();
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+
+      // tenta logout se existir
+      if (socket && typeof socket.logout === "function") {
+        try {
+          await socket.logout();
+        } catch (err) {
+          Logger.warn(
+            `Falha ao executar logout da conexão ${connectionId}, prosseguindo com limpeza`
+          );
+        }
       }
 
+      // remove dos maps internos
       this.connections.delete(connectionId);
       this.connectionStatus.delete(connectionId);
 
-      // Remove auth files
+      // remove pasta de autenticação
       const authPath = path.join(this.authDir, connectionId);
-
       if (await fs.pathExists(authPath)) {
         await fs.remove(authPath);
       }
 
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-
-      // Remove QR code image
-      const qrPath = path.join(
-        __dirname,
-        "../../temp",
-        `${connectionId}_qr.png`
-      );
-
+      // remove QR temporário
+      const qrPath = path.join(__dirname, "../../temp", `${connectionId}.png`);
       if (await fs.pathExists(qrPath)) {
         await fs.remove(qrPath);
       }
@@ -686,7 +688,7 @@ export class WhatsAppService {
       Logger.success(`Conexão ${connectionId} removida com sucesso`);
       return true;
     } catch (error) {
-      Logger.error(`Erro ao remover conexão ${connectionId}:`);
+      Logger.error(`Erro ao remover conexão ${connectionId}:`, error);
       return false;
     }
   }
