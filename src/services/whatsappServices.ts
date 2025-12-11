@@ -597,6 +597,16 @@ export class WhatsAppService {
               ? message.key.remoteJid
               : socket?.user?.id ?? message.key.remoteJid;
 
+            console.log("socket?.user?.id", socket?.user?.id);
+            console.log("message.key", message.key);
+            console.log("toJid", toJid);
+
+            console.log(
+              "cleanNumber(message.key.remoteJid)",
+              cleanNumber(message.key.remoteJid)
+            );
+            console.log("cleanNumber(toJid)", cleanNumber(toJid));
+
             payload = {
               sessionName: connectionId,
               message: {
