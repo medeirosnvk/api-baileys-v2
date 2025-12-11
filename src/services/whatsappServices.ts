@@ -343,12 +343,13 @@ export class WhatsAppService {
       if (
         errorCode === DisconnectReason.badSession ||
         errorCode === DisconnectReason.forbidden ||
-        error?.message?.includes("405")
+        error?.message?.includes("405") ||
+        error?.message?.includes("401")
       ) {
         status.status = "error";
-        status.error = "Sessão inválida ou número proibido";
+        status.error = "Sessão fechada ou inválida";
         Logger.error(
-          `Encerrando conexão ${connectionId} por erro crítico (badSession/forbidden/405)`
+          `Encerrando conexão ${connectionId} por erro crítico (badSession/forbidden/405/401)`
         );
         await this.removeConnection(connectionId);
         this.connectionStatus.set(connectionId, status);
