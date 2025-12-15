@@ -595,16 +595,20 @@ export class WhatsAppService {
 
           try {
             // Proteção contra socket indefinido e socket.user indefinido
-            const toJid = message.key.fromMe
-              ? message.key.remoteJid
-              : socket?.user?.id ?? message.key.remoteJid;
+            const realFrom = message.key.fromMe
+              ? cleanNumber(socket?.user?.id)
+              : cleanNumber(message.key.remoteJid);
+
+            const realTo = message.key.fromMe
+              ? cleanNumber(message.key.remoteJid)
+              : cleanNumber(socket?.user?.id);
 
             payload = {
               sessionName: connectionId,
               message: {
                 _data: {
-                  from: cleanNumber(message.key.remoteJidAlt),
-                  to: cleanNumber(toJid),
+                  from: realFrom,
+                  to: realTo,
                 },
                 id: { id: message.key.id },
                 body:
