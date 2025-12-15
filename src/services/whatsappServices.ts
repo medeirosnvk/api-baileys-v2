@@ -591,7 +591,6 @@ export class WhatsAppService {
             }
           }
 
-          console.log("message", message);
           console.log("message JSON", JSON.stringify(message, null, 2));
 
           try {
@@ -619,7 +618,6 @@ export class WhatsAppService {
               },
             };
 
-            console.log("payload", payload);
             console.log("payload JSON", JSON.stringify(payload, null, 2));
 
             // console.log(
