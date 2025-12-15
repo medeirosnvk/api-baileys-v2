@@ -480,7 +480,7 @@ export class WhatsAppService {
     if (type === "notify") {
       for (const message of messages) {
         const me = message.key.fromMe;
-        const from = message.key.remoteJid;
+        const from = message.key.remoteJidAlt;
         const messageContent = message.message;
         const messageType = Object.keys(messageContent)[0]; // ex: "imageMessage", "videoMessage", "documentMessage" etc.
 
