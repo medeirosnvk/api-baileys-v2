@@ -591,6 +591,9 @@ export class WhatsAppService {
             }
           }
 
+          console.log("message", message);
+          console.log("message JSON", JSON.stringify(message, null, 2));
+
           try {
             // Proteção contra socket indefinido e socket.user indefinido
             const toJid = message.key.fromMe
