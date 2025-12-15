@@ -592,19 +592,17 @@ export class WhatsAppService {
           }
 
           try {
-            console.log("message JSON", JSON.stringify(message, null, 2));
-            console.log("socket?.user?.id", socket?.user?.id);
-            console.log("message.key.remoteJid", message.key.remoteJid);
-            console.log("message.key.remoteJidAlt", message.key.remoteJidAlt);
+            const remoteJid = message.key.remoteJid;
+            const remoteJidAlt = message.key.remoteJidAlt;
+            const socketUserId = socket?.user?.id;
+            const fromMe = message.key.fromMe;
 
             // Proteção contra socket indefinido e socket.user indefinido
-            const realFrom = message.key.fromMe
-              ? socket?.user?.id
-              : message.key.remoteJid;
+            const realFrom = remoteJid.includes("whatsapp.net")
+              ? remoteJid
+              : remoteJidAlt;
 
-            const realTo = message.key.fromMe
-              ? message.key.remoteJid
-              : socket?.user?.id;
+            const realTo = fromMe ? remoteJid : socketUserId;
 
             payload = {
               sessionName: connectionId,
