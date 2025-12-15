@@ -591,24 +591,27 @@ export class WhatsAppService {
             }
           }
 
-          console.log("message JSON", JSON.stringify(message, null, 2));
-
           try {
+            console.log("message JSON", JSON.stringify(message, null, 2));
+            console.log("socket?.user?.id", socket?.user?.id);
+            console.log("message.key.remoteJid", message.key.remoteJid);
+            console.log("message.key.remoteJidAlt", message.key.remoteJidAlt);
+
             // Proteção contra socket indefinido e socket.user indefinido
             const realFrom = message.key.fromMe
-              ? cleanNumber(socket?.user?.id)
-              : cleanNumber(message.key.remoteJid);
+              ? socket?.user?.id
+              : message.key.remoteJid;
 
             const realTo = message.key.fromMe
-              ? cleanNumber(message.key.remoteJid)
-              : cleanNumber(socket?.user?.id);
+              ? message.key.remoteJid
+              : socket?.user?.id;
 
             payload = {
               sessionName: connectionId,
               message: {
                 _data: {
-                  from: realFrom,
-                  to: realTo,
+                  from: cleanNumber(realFrom),
+                  to: cleanNumber(realTo),
                 },
                 id: { id: message.key.id },
                 body:
