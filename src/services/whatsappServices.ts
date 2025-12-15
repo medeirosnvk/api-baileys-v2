@@ -603,7 +603,7 @@ export class WhatsAppService {
               sessionName: connectionId,
               message: {
                 _data: {
-                  from: cleanNumber(message.key.remoteJid),
+                  from: cleanNumber(message.key.remoteJidAlt),
                   to: cleanNumber(toJid),
                 },
                 id: { id: message.key.id },
