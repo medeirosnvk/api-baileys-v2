@@ -362,8 +362,8 @@ export class WhatsAppService {
         status.status = "banned";
         status.error = "Número banido";
         Logger.error(`Encerrando conexão ${connectionId} por banimento (503)`);
-        await this.removeConnection(connectionId);
         this.connectionStatus.set(connectionId, status);
+        await this.removeConnection(connectionId);
         this.connectionLocks.delete(connectionId);
         return;
       }
@@ -597,7 +597,6 @@ export class WhatsAppService {
             const socketUserId = socket?.user?.id;
             const fromMe = message.key.fromMe;
 
-            // Proteção contra socket indefinido e socket.user indefinido
             const realFrom = remoteJid.includes("whatsapp.net")
               ? remoteJid
               : remoteJidAlt;
@@ -1058,7 +1057,7 @@ export class WhatsAppService {
         null;
 
       if (statusCode === 428) {
-        console.error("Número não cadastrado no whatsapp.");
+        console.error("Número não cadastrado no whatsapp. Erro 428");
         return null;
       }
 
