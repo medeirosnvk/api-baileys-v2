@@ -263,6 +263,10 @@ export class WhatsAppService {
           qrTimeout = null;
           Logger.warn(`Conexão encerrada antes de autenticar: ${connectionId}`);
 
+          // Atualiza status para fechado
+          status.status = "closed";
+          this.connectionStatus.set(connectionId, status);
+
           // 🛠️ Libera o lock global de QR
           this.qrLocks.delete(connectionId);
 
