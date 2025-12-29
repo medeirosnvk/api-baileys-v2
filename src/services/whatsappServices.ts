@@ -836,6 +836,27 @@ export class WhatsAppService {
     }
   }
 
+  private isSocketActive(socket: WASocket | undefined): boolean {
+    if (!socket) return false;
+
+    // ✅ Validação 1: Verifica se o socket tem um usuário autenticado
+    if (!socket.user?.id) {
+      return false;
+    }
+
+    // ✅ Validação 2: Verifica se o WebSocket está aberto (readyState === 1)
+    if ((socket.ws as any)?.readyState !== 1) {
+      return false;
+    }
+
+    // ✅ Validação 3: Verifica se o socket não foi finalizado
+    if ((socket as any).state?.isOnline === false) {
+      return false;
+    }
+
+    return true;
+  }
+
   async sendMediaMessageBase64(
     connectionId: string,
     to: string,
@@ -855,6 +876,16 @@ export class WhatsAppService {
 
       if (status?.status !== "connected") {
         throw new Error("Conexão não está ativa");
+      }
+
+      // ✅ VALIDAÇÃO ADICIONAL: Verifica se o socket está efetivamente ativo usando métodos nativos do Baileys
+      if (!this.isSocketActive(socket)) {
+        Logger.error(
+          `Socket da conexão ${connectionId} não está efetivamente ativo`
+        );
+        throw new Error(
+          "Socket não está ativo - verifique a conexão WebSocket"
+        );
       }
 
       let processedNumber = to;
