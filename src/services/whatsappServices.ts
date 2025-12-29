@@ -965,7 +965,24 @@ export class WhatsAppService {
   }
 
   getConnectionStatus(connectionId: string): ConnectionStatus | undefined {
-    return this.connectionStatus.get(connectionId);
+    const status = this.connectionStatus.get(connectionId);
+
+    // ✅ Se o status está marcado como conectado, valida se está efetivamente ativo
+    if (status && status.status === "connected") {
+      const socket = this.connections.get(connectionId);
+
+      // Se o socket não está efetivamente ativo, atualiza o status
+      if (!this.isSocketActive(socket)) {
+        Logger.warn(
+          `Conexão ${connectionId} marcada como conectada, mas socket não está ativo. Atualizando status.`
+        );
+        status.status = "disconnected";
+        status.error = "Socket inativo - reconexão necessária";
+        this.connectionStatus.set(connectionId, status);
+      }
+    }
+
+    return status;
   }
 
   getAllConnections() {
