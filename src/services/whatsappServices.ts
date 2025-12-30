@@ -215,6 +215,65 @@ export class WhatsAppService {
       socket.ev.on("creds.update", saveCreds);
 
       socket.ev.on("connection.update", async (update: any) => {
+        const { qr, connection } = update;
+
+        if (qr && !qrShown && !this.qrLocks.get(connectionId)) {
+          qrShown = true;
+
+          // 🛠️ Ativa o lock global de QR
+          this.qrLocks.set(connectionId, true);
+
+          Logger.info(`QR Code gerado para conexão ${connectionId}`);
+          qrcode.generate(qr, { small: true });
+
+          qrTimeout = setTimeout(() => {
+            Logger.warn(
+              `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando tentativa.`
+            );
+            socket.end(undefined);
+            this.connections.delete(connectionId);
+            this.qrLocks.delete(connectionId); // 🛠️ Libera o lock global de QR
+
+            const timeoutStatus = this.connectionStatus.get(connectionId);
+            if (timeoutStatus) {
+              timeoutStatus.status = "error";
+              timeoutStatus.error = "timeout";
+              this.connectionStatus.set(connectionId, timeoutStatus);
+            }
+
+            // 🔒 Libera o lock quando houver timeout
+            this.connectionLocks.delete(connectionId);
+          }, 5 * 60 * 1000);
+        }
+
+        if (connection === "open" && qrTimeout) {
+          clearTimeout(qrTimeout);
+          qrTimeout = null;
+          Logger.info(`Conexão estabelecida com sucesso: ${connectionId}`);
+
+          // 🛠️ Libera o lock global de QR
+          this.qrLocks.delete(connectionId);
+
+          // 🔒 Libera o lock quando conectar com sucesso
+          this.connectionLocks.delete(connectionId);
+        }
+
+        if (connection === "close" && qrTimeout) {
+          clearTimeout(qrTimeout);
+          qrTimeout = null;
+          Logger.warn(`Conexão encerrada antes de autenticar: ${connectionId}`);
+
+          // Atualiza status para fechado
+          status.status = "closed";
+          this.connectionStatus.set(connectionId, status);
+
+          // 🛠️ Libera o lock global de QR
+          this.qrLocks.delete(connectionId);
+
+          // 🔒 Libera o lock quando fechar
+          this.connectionLocks.delete(connectionId);
+        }
+
         await this.handleConnectionUpdate(connectionId, update);
       });
 
@@ -237,121 +296,169 @@ export class WhatsAppService {
     }
   }
 
-  private async finalizeConnection(connectionId: string, status: any) {
-    this.connectionStatus.set(connectionId, status);
-    this.connections.delete(connectionId);
-    this.connectionLocks.delete(connectionId);
-    this.reconnectAttempts.delete(connectionId);
-
-    await this.removeConnection(connectionId);
-  }
-
   private async handleConnectionUpdate(
     connectionId: string,
     update: Partial<ConnectionState>
   ) {
     const { qr, connection, lastDisconnect } = update;
+    let status = this.connectionStatus.get(connectionId);
 
-    const status = this.connectionStatus.get(connectionId);
     if (!status) return;
 
-    // QRCODE
     if (qr) {
-      status.status = "connecting";
       status.qrCode = qr;
-      this.connectionStatus.set(connectionId, status);
-    }
+      status.status = "connecting";
 
-    // CONEXAO ABERTA
-    if (connection === "open") {
-      status.status = "connected";
-      status.error = undefined;
-      status.qrCode = undefined;
-      status.createdAt = new Date();
-
-      const socket = this.connections.get(connectionId);
-      if (socket?.user?.id) {
-        status.phoneNumber = socket.user.id.split("@")[0].split(":")[0];
+      try {
+        const qrDir = path.resolve(process.cwd(), "temp");
+        const qrPath = path.join(qrDir, `${connectionId}.png`);
+        await fs.ensureDir(qrDir);
+        await QRCode.toFile(qrPath, qr);
+        Logger.success(`QR Code salvo em: ${qrPath}`);
+      } catch (error) {
+        Logger.error("Erro ao salvar QR Code:", error);
       }
-
-      this.reconnectAttempts.delete(connectionId);
-      this.connectionStatus.set(connectionId, status);
-
-      Logger.success(`Conexao ${connectionId} aberta`);
-      return;
     }
 
-    // CONEXAO FECHADA
     if (connection === "close") {
-      const error = lastDisconnect?.error as Boom | undefined;
-      const code = error?.output?.statusCode;
+      const error = lastDisconnect?.error as Boom;
+      const errorCode = error?.output?.statusCode;
 
-      Logger.warn(`Conexao ${connectionId} fechada. Codigo: ${code}`);
+      Logger.warn(`Conexão ${connectionId} fechada. Código: ${errorCode}`);
 
-      // TIMEOUT QRCODE
-      if (status.error === "timeout" || code === 408) {
-        status.status = "timeout";
-        status.error = "QR nao lido";
-        await this.finalizeConnection(connectionId, status);
+      status = this.connectionStatus.get(connectionId);
+      if (!status) return;
+
+      // Se foi encerrada por timeout do QR, não tenta reconectar
+      if (errorCode === 408 || status.error === "timeout") {
+        Logger.warn(
+          `Conexão ${connectionId} fechada por TIMEOUT do QR. Não será reconectada.`
+        );
+        status.status = "disconnected";
+        status.error = "timeout";
+        await this.removeConnection(connectionId);
+        this.connections.delete(connectionId);
+        this.connectionStatus.set(connectionId, status);
+        this.connectionLocks.delete(connectionId);
         return;
       }
 
-      // LOGOUT OU SESSAO INVALIDA
+      // Erros críticos — encerrar definitivamente
       if (
-        code === DisconnectReason.loggedOut ||
-        code === DisconnectReason.badSession ||
-        code === 401
+        errorCode === DisconnectReason.badSession ||
+        errorCode === DisconnectReason.forbidden ||
+        error?.message?.includes("405") ||
+        error?.message?.includes("401")
       ) {
-        status.status = "loggedOut";
-        status.error = "Sessao invalida ou logout remoto";
-        await this.finalizeConnection(connectionId, status);
+        status.status = "error";
+        status.error = "Sessão fechada ou inválida";
+        Logger.error(
+          `Encerrando conexão ${connectionId} por erro crítico (badSession/forbidden/405/401)`
+        );
+        await this.removeConnection(connectionId);
+        this.connectionStatus.set(connectionId, status);
+        this.connectionLocks.delete(connectionId);
         return;
       }
 
-      // BANIMENTO
-      if (code === 403 || code === 428 || error?.message?.includes("503")) {
+      // Número banido — encerrar definitivamente
+      if (error?.message?.includes("503") || errorCode === 428) {
         status.status = "banned";
-        status.error = "Numero banido";
-        await this.finalizeConnection(connectionId, status);
+        status.error = "Número banido";
+        Logger.error(`Encerrando conexão ${connectionId} por banimento (503)`);
+        this.connectionStatus.set(connectionId, status);
+        await this.removeConnection(connectionId);
+        this.connectionLocks.delete(connectionId);
         return;
       }
 
-      // RECONEXAO AUTOMATICA
+      // Lista de erros reconectáveis
       const reconectaveis = [
-        DisconnectReason.connectionLost,
+        515, // Stream Error
+        DisconnectReason.loggedOut,
         DisconnectReason.restartRequired,
-        515,
+        DisconnectReason.connectionLost,
       ];
 
-      // TENTATIVAS RECONEXAO
-      if (reconectaveis.includes(code as number)) {
+      if (reconectaveis.includes(errorCode)) {
         const attempts = this.reconnectAttempts.get(connectionId) || 0;
 
         if (attempts >= this.MAX_RECONNECT_ATTEMPTS) {
+          Logger.error(
+            `❌ Máximo de tentativas de reconexão atingido (${attempts}/${this.MAX_RECONNECT_ATTEMPTS}) para ${connectionId}`
+          );
           status.status = "error";
-          status.error = "Falha apos multiplas tentativas";
-          await this.finalizeConnection(connectionId, status);
+          status.error = `Falha após ${attempts} tentativas (${errorCode})`;
+          this.connectionStatus.set(connectionId, status);
+          this.reconnectAttempts.delete(connectionId);
+          this.connectionLocks.delete(connectionId);
+          await this.removeConnection(connectionId);
           return;
         }
 
+        // Incrementa e tenta reconectar
         this.reconnectAttempts.set(connectionId, attempts + 1);
-        status.status = "reconnecting";
-        status.error = `Reconectando (${attempts + 1}/${
-          this.MAX_RECONNECT_ATTEMPTS
-        })`;
-        this.connectionStatus.set(connectionId, status);
 
-        setTimeout(() => {
-          this.createConnection(connectionId, true).catch(() => {});
+        Logger.warn(
+          `⚠️  Erro reconectável (${errorCode}) em ${connectionId}. Tentativa ${
+            attempts + 1
+          }/${this.MAX_RECONNECT_ATTEMPTS}`
+        );
+
+        // Atualiza status e libera lock
+        status.status = "disconnected";
+        status.error = `Erro ${errorCode} - reconectando...`;
+        this.connectionStatus.set(connectionId, status);
+        this.connections.delete(connectionId);
+        this.connectionLocks.delete(connectionId);
+
+        setTimeout(async () => {
+          try {
+            Logger.info(
+              `🔄 Iniciando reconexão automática para ${connectionId}`
+            );
+            await this.createConnection(connectionId, true);
+          } catch (reconnectError) {
+            Logger.error(
+              `Falha na reconexão automática de ${connectionId}:`,
+              reconnectError
+            );
+
+            const currentStatus = this.connectionStatus.get(connectionId);
+            if (currentStatus) {
+              currentStatus.status = "error";
+              currentStatus.error = "Falha na reconexão após erro reconectável";
+              this.connectionStatus.set(connectionId, currentStatus);
+            }
+          }
         }, 3000);
 
         return;
       }
 
-      // OUTROS CASOS
-      status.status = "disconnected";
-      status.error = "Desconexao inesperada";
-      await this.finalizeConnection(connectionId, status);
+      // Outros erros genéricos
+      if (error?.message?.includes("SessionEntry")) {
+        Logger.warn(`sessão E2E foi encerrada e será recriada. Ignorando...`);
+      }
+
+      this.connectionStatus.set(connectionId, status);
+    } else if (connection === "open") {
+      status.status = "connected";
+      status.qrCode = undefined;
+      status.error = undefined;
+      status.createdAt = new Date();
+
+      const socket = this.connections.get(connectionId);
+
+      if (socket?.user?.id) {
+        status.phoneNumber = socket.user.id.split("@")[0].split(":")[0];
+      }
+
+      Logger.success(`Conexão ${connectionId} estabelecida com sucesso!`);
+      this.connectionStatus.set(connectionId, status);
+
+      // 🔄 Reseta contador de tentativas após conexão bem-sucedida
+      this.reconnectAttempts.delete(connectionId);
     }
   }
 
