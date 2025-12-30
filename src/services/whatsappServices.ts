@@ -715,14 +715,14 @@ export class WhatsAppService {
     try {
       const socket = this.connections.get(connectionId);
 
-      if (!socket) {
-        throw new Error("Conexão não encontrada");
+      if (!socket || !socket.user) {
+        throw new Error("Sessão invalida ou nao autenticada.");
       }
 
       const status = this.connectionStatus.get(connectionId);
 
       if (status?.status !== "connected") {
-        throw new Error("Conexão não está ativa");
+        throw new Error("Conexão não está ativa.");
       }
 
       let processedNumber = to;
@@ -766,14 +766,14 @@ export class WhatsAppService {
     try {
       const socket = this.connections.get(connectionId);
 
-      if (!socket) {
-        throw new Error("Conexão não encontrada");
+      if (!socket || !socket.user) {
+        throw new Error("Sessão invalida ou nao autenticada.");
       }
 
       const status = this.connectionStatus.get(connectionId);
 
       if (status?.status !== "connected") {
-        throw new Error("Conexão não está ativa");
+        throw new Error("Conexão não está ativa.");
       }
 
       let processedNumber = to;
@@ -836,27 +836,6 @@ export class WhatsAppService {
     }
   }
 
-  private isSocketActive(socket: WASocket | undefined): boolean {
-    if (!socket) return false;
-
-    // ✅ Validação 1: Verifica se o socket tem um usuário autenticado
-    if (!socket.user?.id) {
-      return false;
-    }
-
-    // ✅ Validação 2: Verifica se o WebSocket está aberto (readyState === 1)
-    if ((socket.ws as any)?.readyState !== 1) {
-      return false;
-    }
-
-    // ✅ Validação 3: Verifica se o socket não foi finalizado
-    if ((socket as any).state?.isOnline === false) {
-      return false;
-    }
-
-    return true;
-  }
-
   async sendMediaMessageBase64(
     connectionId: string,
     to: string,
@@ -868,24 +847,14 @@ export class WhatsAppService {
     try {
       const socket = this.connections.get(connectionId);
 
-      if (!socket) {
-        throw new Error("Conexão não encontrada");
+      if (!socket || !socket.user) {
+        throw new Error("Sessão invalida ou nao autenticada.");
       }
 
       const status = this.connectionStatus.get(connectionId);
 
       if (status?.status !== "connected") {
-        throw new Error("Conexão não está ativa");
-      }
-
-      // ✅ VALIDAÇÃO ADICIONAL: Verifica se o socket está efetivamente ativo usando métodos nativos do Baileys
-      if (!this.isSocketActive(socket)) {
-        Logger.error(
-          `Socket da conexão ${connectionId} não está efetivamente ativo`
-        );
-        throw new Error(
-          "Socket não está ativo - verifique a conexão WebSocket"
-        );
+        throw new Error("Conexão não está ativa.");
       }
 
       let processedNumber = to;
@@ -966,21 +935,6 @@ export class WhatsAppService {
 
   getConnectionStatus(connectionId: string): ConnectionStatus | undefined {
     const status = this.connectionStatus.get(connectionId);
-
-    // ✅ Se o status está marcado como conectado, valida se está efetivamente ativo
-    if (status && status.status === "connected") {
-      const socket = this.connections.get(connectionId);
-
-      // Se o socket não está efetivamente ativo, atualiza o status
-      if (!this.isSocketActive(socket)) {
-        Logger.warn(
-          `Conexão ${connectionId} marcada como conectada, mas socket não está ativo. Atualizando status.`
-        );
-        status.status = "disconnected";
-        status.error = "Socket inativo - reconexão necessária";
-        this.connectionStatus.set(connectionId, status);
-      }
-    }
 
     return status;
   }
