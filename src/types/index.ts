@@ -3,12 +3,14 @@ export interface ConnectionStatus {
   status:
     | "connecting"
     | "connected"
+    | "reconnecting"
     | "disconnected"
     | "forbidden"
-    | "error"
     | "loggedOut"
     | "banned"
-    | "closed";
+    | "closed"
+    | "timeout"
+    | "error";
   qrCode?: string;
   connectionTimeout?: NodeJS.Timeout;
   phoneNumber: string | null;
