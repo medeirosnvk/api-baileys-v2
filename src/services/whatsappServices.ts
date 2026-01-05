@@ -178,11 +178,13 @@ export class WhatsAppService {
       const authPath = path.join(this.authDir, connectionId);
 
       // Se NÃO for reconexão, sempre limpar pasta de sessão antiga
-      if (!isReconnection && (await fs.pathExists(authPath))) {
-        Logger.warn(
-          `Removendo sessão antiga de ${connectionId} para evitar credenciais corrompidas`
-        );
-        await fs.remove(authPath);
+      if (!isReconnection) {
+        if (await fs.pathExists(authPath)) {
+          Logger.warn(
+            `Removendo sessão antiga de ${connectionId} para evitar credenciais corrompidas`
+          );
+          await fs.remove(authPath);
+        }
       }
 
       await fs.ensureDir(authPath);
@@ -212,9 +214,52 @@ export class WhatsAppService {
       let qrShown = false;
       let qrTimeout: NodeJS.Timeout | null = null;
 
-      socket.ev.on("creds.update", saveCreds);
+      socket.ev.on("creds.update", async () => {
+        await fs.ensureDir(authPath);
+        await saveCreds();
+      });
 
-      socket.ev.on("connection.update", async (update) => {
+      socket.ev.on("connection.update", async (update: any) => {
+        const { qr } = update;
+
+        if (qr && !qrShown && !this.qrLocks.get(connectionId)) {
+          qrShown = true;
+
+          // 🛠️ Ativa o lock global de QR
+          this.qrLocks.set(connectionId, true);
+
+          Logger.info(`QR Code gerado para conexão ${connectionId}`);
+          qrcode.generate(qr, { small: true });
+
+          qrTimeout = setTimeout(() => {
+            Logger.warn(
+              `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando tentativa.`
+            );
+
+            try {
+              socket.ev.removeAllListeners("connection.update");
+              socket.ev.removeAllListeners("creds.update");
+              socket.ev.removeAllListeners("messages.upsert");
+              socket.end(undefined);
+            } catch {
+              // ignorar erros ao encerrar
+            }
+
+            this.connections.delete(connectionId);
+            this.qrLocks.delete(connectionId); // 🛠️ Libera o lock global de QR
+
+            const timeoutStatus = this.connectionStatus.get(connectionId);
+            if (timeoutStatus) {
+              timeoutStatus.status = "error";
+              timeoutStatus.error = "timeout";
+              this.connectionStatus.set(connectionId, timeoutStatus);
+            }
+
+            // 🔒 Libera o lock quando houver timeout
+            this.connectionLocks.delete(connectionId);
+          }, 2 * 60 * 1000); // 2 minutos
+        }
+
         await this.handleConnectionUpdate(connectionId, update);
       });
 
@@ -423,9 +468,58 @@ export class WhatsAppService {
 
     // QRCODE
     if (qr) {
-      status.status = "connecting";
+      // 🔐 Valida se o QR é válido (string ou buffer)
+      if (!qr || (typeof qr !== "string" && !Buffer.isBuffer(qr))) {
+        Logger.warn(
+          `❌ QR Code inválido para conexão ${connectionId}: tipo ${typeof qr}`
+        );
+        return;
+      }
+
       status.qrCode = qr;
+      status.status = "connecting";
       this.connectionStatus.set(connectionId, status);
+
+      try {
+        const qrDir = path.resolve(process.cwd(), "temp");
+        const qrPath = path.join(qrDir, `${connectionId}.png`);
+
+        // 🛠️ Garante que o diretório existe
+        await fs.ensureDir(qrDir);
+        Logger.info(`📁 Diretório de QR verificado: ${qrDir}`);
+
+        // 🖼️ Gera o arquivo QR Code
+        await QRCode.toFile(qrPath, qr);
+        Logger.info(
+          `✏️ QR Code gerado para ${connectionId}, salvando em ${qrPath}`
+        );
+
+        // 🔍 Verifica se o arquivo foi criado com sucesso
+        const fileExists = await fs.pathExists(qrPath);
+        if (!fileExists) {
+          throw new Error(
+            `Arquivo QR não foi criado em ${qrPath} após salvamento`
+          );
+        }
+
+        // 📊 Valida o tamanho do arquivo
+        const stats = await fs.stat(qrPath);
+        if (stats.size === 0) {
+          throw new Error(`Arquivo QR criado mas vazio (0 bytes): ${qrPath}`);
+        }
+
+        Logger.success(
+          `✅ QR Code salvo com sucesso: ${qrPath} (${stats.size} bytes)`
+        );
+      } catch (error) {
+        Logger.error(
+          `❌ Erro ao salvar QR Code para ${connectionId}:`,
+          error instanceof Error ? error.message : String(error)
+        );
+        // 🚨 Atualiza status para refletir o erro
+        status.error = "Falha ao gerar QR Code";
+        this.connectionStatus.set(connectionId, status);
+      }
     }
 
     // CONEXAO ABERTA
