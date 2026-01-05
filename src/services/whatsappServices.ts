@@ -32,6 +32,9 @@ export class WhatsAppService {
   // 🔄 Controle de tentativas de reconexão
   private reconnectAttempts = new Map<string, number>();
   private qrLocks: Map<string, boolean> = new Map();
+  // Controle por-connection para QR já mostrado e timeouts
+  private qrShown: Map<string, boolean> = new Map();
+  private qrTimeouts: Map<string, NodeJS.Timeout | null> = new Map();
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
 
   constructor() {
@@ -207,73 +210,15 @@ export class WhatsAppService {
       };
 
       this.connectionStatus.set(connectionId, status);
+      this.qrShown.set(connectionId, false);
+      this.qrTimeouts.set(connectionId, null);
 
-      // Controle de QR Code
-      let qrShown = false;
-      let qrTimeout: NodeJS.Timeout | null = null;
-
-      socket.ev.on("creds.update", saveCreds);
+      socket.ev.on("creds.update", async () => {
+        await fs.ensureDir(authPath);
+        await saveCreds();
+      });
 
       socket.ev.on("connection.update", async (update: any) => {
-        const { qr, connection } = update;
-
-        if (qr && !qrShown && !this.qrLocks.get(connectionId)) {
-          qrShown = true;
-
-          // 🛠️ Ativa o lock global de QR
-          this.qrLocks.set(connectionId, true);
-
-          Logger.info(`QR Code gerado para conexão ${connectionId}`);
-          qrcode.generate(qr, { small: true });
-
-          qrTimeout = setTimeout(() => {
-            Logger.warn(
-              `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando tentativa.`
-            );
-            socket.end(undefined);
-            this.connections.delete(connectionId);
-            this.qrLocks.delete(connectionId); // 🛠️ Libera o lock global de QR
-
-            const timeoutStatus = this.connectionStatus.get(connectionId);
-            if (timeoutStatus) {
-              timeoutStatus.status = "error";
-              timeoutStatus.error = "timeout";
-              this.connectionStatus.set(connectionId, timeoutStatus);
-            }
-
-            // 🔒 Libera o lock quando houver timeout
-            this.connectionLocks.delete(connectionId);
-          }, 5 * 60 * 1000);
-        }
-
-        if (connection === "open" && qrTimeout) {
-          clearTimeout(qrTimeout);
-          qrTimeout = null;
-          Logger.info(`Conexão estabelecida com sucesso: ${connectionId}`);
-
-          // 🛠️ Libera o lock global de QR
-          this.qrLocks.delete(connectionId);
-
-          // 🔒 Libera o lock quando conectar com sucesso
-          this.connectionLocks.delete(connectionId);
-        }
-
-        if (connection === "close" && qrTimeout) {
-          clearTimeout(qrTimeout);
-          qrTimeout = null;
-          Logger.warn(`Conexão encerrada antes de autenticar: ${connectionId}`);
-
-          // Atualiza status para fechado
-          status.status = "closed";
-          this.connectionStatus.set(connectionId, status);
-
-          // 🛠️ Libera o lock global de QR
-          this.qrLocks.delete(connectionId);
-
-          // 🔒 Libera o lock quando fechar
-          this.connectionLocks.delete(connectionId);
-        }
-
         await this.handleConnectionUpdate(connectionId, update);
       });
 
@@ -304,6 +249,77 @@ export class WhatsAppService {
     let status = this.connectionStatus.get(connectionId);
 
     if (!status) return;
+
+    // Gerencia exibição do QR e timeout por conexão (antes de salvar QR em disco)
+    try {
+      const socket = this.connections.get(connectionId);
+
+      const qrShown = this.qrShown.get(connectionId) || false;
+      const existingQrTimeout = this.qrTimeouts.get(connectionId) || null;
+
+      if (qr && !qrShown && !this.qrLocks.get(connectionId)) {
+        this.qrShown.set(connectionId, true);
+
+        // Ativa lock global de QR
+        this.qrLocks.set(connectionId, true);
+
+        Logger.info(`QR Code gerado para conexão ${connectionId}`);
+        qrcode.generate(qr, { small: true });
+
+        const timeout = setTimeout(() => {
+          Logger.warn(
+            `Tempo limite atingido para leitura do QR de ${connectionId}. Encerrando tentativa.`
+          );
+          try {
+            socket?.end(undefined);
+          } catch (e) {
+            Logger.warn(`Erro ao encerrar socket no timeout de QR: ${e}`);
+          }
+          this.connections.delete(connectionId);
+          this.qrLocks.delete(connectionId); // libera lock global de QR
+
+          const timeoutStatus = this.connectionStatus.get(connectionId);
+          if (timeoutStatus) {
+            timeoutStatus.status = "error";
+            timeoutStatus.error = "timeout";
+            this.connectionStatus.set(connectionId, timeoutStatus);
+          }
+
+          // Libera o lock de criação quando houver timeout
+          this.connectionLocks.delete(connectionId);
+        }, 5 * 60 * 1000);
+
+        this.qrTimeouts.set(connectionId, timeout);
+      }
+
+      // Quando abrir conexão, limpa timeout se existir
+      if (connection === "open" && existingQrTimeout) {
+        clearTimeout(existingQrTimeout as NodeJS.Timeout);
+        this.qrTimeouts.set(connectionId, null);
+        Logger.info(`Conexão estabelecida com sucesso: ${connectionId}`);
+
+        // libera locks
+        this.qrLocks.delete(connectionId);
+        this.connectionLocks.delete(connectionId);
+      }
+
+      // Quando fechar antes de autenticar, limpa timeout se existir
+      if (connection === "close" && existingQrTimeout) {
+        clearTimeout(existingQrTimeout as NodeJS.Timeout);
+        this.qrTimeouts.set(connectionId, null);
+        Logger.warn(`Conexão encerrada antes de autenticar: ${connectionId}`);
+
+        // Atualiza status para fechado
+        status.status = "closed";
+        this.connectionStatus.set(connectionId, status);
+
+        // libera locks
+        this.qrLocks.delete(connectionId);
+        this.connectionLocks.delete(connectionId);
+      }
+    } catch (err) {
+      Logger.error("Erro no gerenciamento de QR/timeouts:", err);
+    }
 
     if (qr) {
       status.qrCode = qr;
