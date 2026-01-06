@@ -1,0 +1,109 @@
+1. DisconnectReason.badSession (401)
+
+Motivo: Sessão inválida ou corrompida
+O que acontece:
+O WhatsApp rejeitou a sessão salva. Geralmente ocorre quando:
+
+Os arquivos de autenticação foram corrompidos
+
+A sessão foi sobrescrita
+
+O WhatsApp invalidou o login
+
+Ação recomendada:
+Apagar os arquivos de autenticação e gerar um novo QR Code.
+
+#############################################################################
+
+2. DisconnectReason.connectionClosed (428)
+
+Motivo: Conexão encerrada pelo servidor
+O que acontece:
+O WhatsApp fechou a conexão sem informar explicitamente o motivo. Pode ocorrer por:
+
+Instabilidade de rede
+
+Timeout
+
+Idle prolongado
+
+Pequenas falhas temporárias
+
+Ação recomendada:
+Reconectar automaticamente após alguns segundos.
+
+#############################################################################
+
+3. DisconnectReason.connectionLost (408)
+
+Motivo: Conexão perdida
+O que acontece:
+A conexão caiu por problemas de rede local ou internet instável.
+
+Ação recomendada:
+Reconexão automática, normalmente segura.
+
+#############################################################################
+
+4. DisconnectReason.connectionReplaced (440)
+
+Motivo: Sessão substituída por outro login
+O que acontece:
+O mesmo número foi conectado em outro dispositivo ou instância, invalidando a atual.
+
+Ação recomendada:
+Encerrar definitivamente essa sessão e exigir novo QR Code se quiser reconectar.
+
+#############################################################################
+
+5. DisconnectReason.loggedOut (401)
+
+Motivo: Logout forçado pelo WhatsApp
+O que acontece:
+O WhatsApp removeu o login daquele dispositivo. Pode ocorrer quando:
+
+O usuário saiu manualmente no celular
+
+O WhatsApp detectou comportamento suspeito
+
+Mudança de segurança na conta
+
+Ação recomendada:
+Apagar credenciais e gerar novo QR Code.
+
+6. DisconnectReason.restartRequired (515)
+
+#############################################################################
+
+Motivo: Reinício necessário
+O que acontece:
+O WhatsApp exige que a sessão seja reiniciada para continuar funcionando corretamente.
+
+Ação recomendada:
+Reiniciar a conexão automaticamente, sem apagar a sessão.
+
+#############################################################################
+
+7. DisconnectReason.timedOut (408)
+
+Motivo: Tempo limite excedido
+O que acontece:
+A conexão não respondeu dentro do tempo esperado, normalmente por lentidão de rede.
+
+Ação recomendada:
+Tentar reconectar.
+
+#############################################################################
+
+8. DisconnectReason.multideviceMismatch
+
+Motivo: Incompatibilidade com multidevice
+O que acontece:
+A sessão não está mais compatível com o estado atual do WhatsApp do usuário, comum após:
+
+Atualizações do WhatsApp
+
+Mudanças no modo multidevice
+
+Ação recomendada:
+Excluir a sessão e gerar novo QR Code.

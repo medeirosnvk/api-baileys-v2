@@ -337,21 +337,24 @@ export class WhatsAppService {
     }
 
     if (connection === "close") {
-      const error = lastDisconnect?.error as Boom;
+      const error = lastDisconnect?.error as Boom | undefined;
       const errorCode = error?.output?.statusCode;
+      const errorMessage = error?.output?.payload?.message || "";
 
       Logger.warn(`Conexão ${connectionId} fechada. Código: ${errorCode}`);
 
       status = this.connectionStatus.get(connectionId);
       if (!status) return;
 
-      // Se foi encerrada por timeout do QR, não tenta reconectar
+      // TIMEOUT DE QR CODE
       if (errorCode === 408 || status.error === "timeout") {
         Logger.warn(
-          `Conexão ${connectionId} fechada por TIMEOUT do QR. Não será reconectada.`
+          `Conexão ${connectionId} encerrada por timeout do QR Code.`
         );
+
         status.status = "disconnected";
         status.error = "timeout";
+
         await this.removeConnection(connectionId);
         this.connections.delete(connectionId);
         this.connectionStatus.set(connectionId, status);
@@ -359,52 +362,56 @@ export class WhatsAppService {
         return;
       }
 
-      // Erros críticos — encerrar definitivamente
+      // SESSÃO INVALIDADA OU LOGOUT
       if (
+        errorCode === DisconnectReason.loggedOut ||
         errorCode === DisconnectReason.badSession ||
-        errorCode === DisconnectReason.forbidden ||
-        error?.message?.includes("405") ||
-        error?.message?.includes("401")
+        errorCode === 401 ||
+        errorCode === 428
       ) {
+        Logger.error(`Sessão ${connectionId} invalidada ou logout detectado.`);
+
         status.status = "error";
-        status.error = "Sessão fechada ou inválida";
+        status.error = "Sessão encerrada pelo WhatsApp";
+
+        await this.removeConnection(connectionId);
+        this.connectionStatus.set(connectionId, status);
+        this.connectionLocks.delete(connectionId);
+        return;
+      }
+
+      // SESSÃO SUBSTITUÍDA POR OUTRO DISPOSITIVO
+      if (errorCode === DisconnectReason.connectionReplaced) {
         Logger.error(
-          `Encerrando conexão ${connectionId} por erro crítico (badSession/forbidden/405/401)`
+          `Sessão ${connectionId} substituída por outro dispositivo.`
         );
+
+        status.status = "error";
+        status.error = "Sessão substituída por outro login";
+
         await this.removeConnection(connectionId);
         this.connectionStatus.set(connectionId, status);
         this.connectionLocks.delete(connectionId);
         return;
       }
 
-      // Número banido — encerrar definitivamente
-      if (error?.message?.includes("503") || errorCode === 428) {
-        status.status = "banned";
-        status.error = "Número banido";
-        Logger.error(`Encerrando conexão ${connectionId} por banimento (503)`);
-        this.connectionStatus.set(connectionId, status);
-        await this.removeConnection(connectionId);
-        this.connectionLocks.delete(connectionId);
-        return;
-      }
-
-      // Lista de erros reconectáveis
-      const reconectaveis = [
-        515, // Stream Error
-        DisconnectReason.loggedOut,
-        DisconnectReason.restartRequired,
-        DisconnectReason.connectionLost,
-      ];
-
-      if (reconectaveis.includes(errorCode)) {
+      // RECONEXÃO AUTOMÁTICA PARA ERROS COMUNS
+      if (
+        errorCode === DisconnectReason.connectionLost ||
+        errorCode === DisconnectReason.connectionClosed ||
+        errorCode === DisconnectReason.restartRequired ||
+        errorCode === 515
+      ) {
         const attempts = this.reconnectAttempts.get(connectionId) || 0;
 
         if (attempts >= this.MAX_RECONNECT_ATTEMPTS) {
           Logger.error(
-            `❌ Máximo de tentativas de reconexão atingido (${attempts}/${this.MAX_RECONNECT_ATTEMPTS}) para ${connectionId}`
+            `Máximo de tentativas de reconexão atingido (${attempts}/${this.MAX_RECONNECT_ATTEMPTS}) em ${connectionId}`
           );
+
           status.status = "error";
-          status.error = `Falha após ${attempts} tentativas (${errorCode})`;
+          status.error = `Falha após ${attempts} tentativas`;
+
           this.connectionStatus.set(connectionId, status);
           this.reconnectAttempts.delete(connectionId);
           this.connectionLocks.delete(connectionId);
@@ -412,38 +419,35 @@ export class WhatsAppService {
           return;
         }
 
-        // Incrementa e tenta reconectar
         this.reconnectAttempts.set(connectionId, attempts + 1);
 
         Logger.warn(
-          `⚠️  Erro reconectável (${errorCode}) em ${connectionId}. Tentativa ${
+          `Erro reconectável (${errorCode}) em ${connectionId}. Tentativa ${
             attempts + 1
           }/${this.MAX_RECONNECT_ATTEMPTS}`
         );
 
-        // Atualiza status e libera lock
         status.status = "disconnected";
-        status.error = `Erro ${errorCode} - reconectando...`;
+        status.error = "Reconectando automaticamente";
+
         this.connectionStatus.set(connectionId, status);
         this.connections.delete(connectionId);
         this.connectionLocks.delete(connectionId);
 
         setTimeout(async () => {
           try {
-            Logger.info(
-              `🔄 Iniciando reconexão automática para ${connectionId}`
-            );
+            Logger.info(`Iniciando reconexão automática para ${connectionId}`);
             await this.createConnection(connectionId, true);
           } catch (reconnectError) {
             Logger.error(
-              `Falha na reconexão automática de ${connectionId}:`,
+              `Falha na reconexão automática de ${connectionId}`,
               reconnectError
             );
 
             const currentStatus = this.connectionStatus.get(connectionId);
             if (currentStatus) {
               currentStatus.status = "error";
-              currentStatus.error = "Falha na reconexão após erro reconectável";
+              currentStatus.error = "Falha definitiva na reconexão";
               this.connectionStatus.set(connectionId, currentStatus);
             }
           }
@@ -452,13 +456,18 @@ export class WhatsAppService {
         return;
       }
 
-      // Outros erros genéricos
-      if (error?.message?.includes("SessionEntry")) {
-        Logger.warn(`sessão E2E foi encerrada e será recriada. Ignorando...`);
-      }
+      // ERRO DESCONHECIDO OU NAO MAPEADO
+      Logger.warn(
+        `Erro não mapeado na conexão ${connectionId}. Mensagem: ${errorMessage}`
+      );
+
+      status.status = "error";
+      status.error = "Erro desconhecido";
 
       this.connectionStatus.set(connectionId, status);
+      this.connectionLocks.delete(connectionId);
     } else if (connection === "open") {
+      // CONEXAO ABERTA COM SUCESSO
       status.status = "connected";
       status.qrCode = undefined;
       status.error = undefined;
@@ -470,10 +479,8 @@ export class WhatsAppService {
         status.phoneNumber = socket.user.id.split("@")[0].split(":")[0];
       }
 
-      Logger.success(`Conexão ${connectionId} estabelecida com sucesso!`);
+      Logger.success(`Conexão ${connectionId} estabelecida com sucesso`);
       this.connectionStatus.set(connectionId, status);
-
-      // 🔄 Reseta contador de tentativas após conexão bem-sucedida
       this.reconnectAttempts.delete(connectionId);
     }
   }
