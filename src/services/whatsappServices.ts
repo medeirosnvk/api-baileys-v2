@@ -456,6 +456,21 @@ export class WhatsAppService {
         return;
       }
 
+      // NUMERO RESTRINGIDO OU PROIBIDO
+      if (errorCode === 403) {
+        Logger.error(
+          `Numero restringido (403) para ${connectionId}. Sessão inválida.`
+        );
+
+        status.status = "error";
+        status.error = "Sessão bloqueada ou restringida pelo WhatsApp";
+
+        await this.removeConnection(connectionId);
+        this.connectionStatus.set(connectionId, status);
+        this.connectionLocks.delete(connectionId);
+        return;
+      }
+
       // ERRO DESCONHECIDO OU NAO MAPEADO
       Logger.warn(
         `Erro não mapeado na conexão ${connectionId}. Mensagem: ${errorMessage}`
