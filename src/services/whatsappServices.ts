@@ -868,7 +868,7 @@ export class WhatsAppService {
           body: messageContent,
         };
 
-        console.log("Mensagem processada pelo StateMachine:", response);
+        console.log("Mensagem recebida para o StateMachine:", response);
 
         await stateMachine.handleMessage(fromPhoneNumber, response);
       } catch (error) {

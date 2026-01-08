@@ -333,7 +333,7 @@ class StateMachine {
         });
 
         Logger.info(
-          `Mensagem de texto enviada de ${this.fromNumber} para ${this.toNumber}:`,
+          `Mensagem enviada de ${this.fromNumber} para ${this.toNumber}:`,
           body
         );
       } else {
@@ -344,7 +344,7 @@ class StateMachine {
         });
 
         Logger.info(
-          `Mensagem de mídia enviada de ${this.fromNumber} para ${this.toNumber}:`,
+          `Mensagem enviada de ${this.fromNumber} para ${this.toNumber}:`,
           body
         );
       }
@@ -437,6 +437,7 @@ class StateMachine {
     const formatToNumber = utils.formatPhoneNumberNew(to);
 
     console.log("FUNCAO 3 Original from number:", from);
+    console.log("FUNCAO 3 Formatted from number:", formatFromNumber);
 
     const dbQuery = `
       INSERT INTO
@@ -516,7 +517,9 @@ class StateMachine {
     phoneNumber: PhoneNumber,
     response: { body: string }
   ): Promise<void> {
+    console.log("HANDLE MENU State Response Body:", response.body);
     const initialStateResponse = response.body.trim();
+    console.log("HANDLE MENU Initial State Response:", initialStateResponse);
     switch (initialStateResponse) {
       case "1":
         try {
