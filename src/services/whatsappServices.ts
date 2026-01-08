@@ -494,6 +494,8 @@ export class WhatsAppService {
       Logger.success(`Conexão ${connectionId} estabelecida com sucesso`);
       this.connectionStatus.set(connectionId, status);
       this.reconnectAttempts.delete(connectionId);
+
+      new StateMachine(connectionId, this);
     }
   }
 

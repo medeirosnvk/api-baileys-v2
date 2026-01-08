@@ -47,23 +47,17 @@ class StateMachine {
   globalData: Record<string, any>;
   connectedUsers: Record<PhoneNumber, ConnectedUser>;
   timer: Record<string, any>;
-  client: WhatsAppClient;
   ticketId: TicketId;
   fromNumber: any;
   toNumber: any;
   sessionName: string;
   private whatsappService: WhatsAppService;
 
-  constructor(
-    client: WhatsAppClient,
-    sessionName: string,
-    whatsappService: WhatsAppService
-  ) {
+  constructor(sessionName: string, whatsappService: WhatsAppService) {
     this.userStates = {};
     this.globalData = {};
     this.connectedUsers = {};
     this.timer = {};
-    this.client = client;
     this.ticketId = null;
     this.fromNumber = null;
     this.toNumber = null;
