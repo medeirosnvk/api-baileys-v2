@@ -82,9 +82,9 @@ class StateMachine {
     const key = String(sessionName);
     if (StateMachine.stateMachines[key]) {
       delete StateMachine.stateMachines[key];
-      console.log(`StateMachine removida para a sessão: ${sessionName}`);
+      Logger.info(`StateMachine removida para a sessão: ${sessionName}`);
     } else {
-      console.log(
+      Logger.warn(
         `Nenhuma StateMachine encontrada para a sessão: ${sessionName}`
       );
     }
@@ -169,19 +169,19 @@ class StateMachine {
             liberaApiResponse.length &&
             (liberaApiResponse[0] as any).liberaApi === "S"
           ) {
-            console.log(`Libera API encontrada para o número ${phoneNumber}.`);
+            Logger.info(`Libera API encontrada para o número ${phoneNumber}.`);
             this._setCredor(phoneNumber, dbResponse[0] as CredorData);
             return dbResponse[0] as CredorData;
           }
         }
 
         // Se nenhum valor de liberaApi for encontrado, retorna null
-        console.log(
+        Logger.warn(
           `Nenhuma liberação de API encontrada para o número ${phoneNumber}.`
         );
         return null;
       } else {
-        console.log(`Nenhum credor encontrado para o número ${phoneNumber}.`);
+        Logger.war(`Nenhum credor encontrado para o número ${phoneNumber}.`);
         return null;
       }
     } catch (error) {
@@ -269,10 +269,10 @@ class StateMachine {
       this.userStates[phoneNumber] = { currentState: "INICIO" } as UserState;
     }
 
-    console.log("Estado anterior:", this.userStates[phoneNumber].currentState);
-    console.log("SALVANDO NOVO ESTADO...", newState);
+    Logger.info("Estado anterior:", this.userStates[phoneNumber].currentState);
+    Logger.info("SALVANDO NOVO ESTADO...", newState);
     this.userStates[phoneNumber].currentState = newState;
-    console.log(
+    Logger.info(
       "Estado atualizado:",
       this.userStates[phoneNumber].currentState
     );
@@ -313,7 +313,7 @@ class StateMachine {
           caption?: string;
         }
   ): Promise<void> {
-    console.log(`Horário da mensagem ENVIADA ao cliente: ${new Date()}`);
+    Logger.info(`Horário da mensagem ENVIADA ao cliente: ${new Date()}`);
 
     const demim = 1;
 
@@ -335,7 +335,7 @@ class StateMachine {
           text: body,
         });
 
-        console.log(
+        Logger.info(
           `Mensagem de texto enviada de ${this.fromNumber} para ${this.toNumber}:`,
           body
         );
@@ -346,7 +346,7 @@ class StateMachine {
           caption: body.caption,
         });
 
-        console.log(
+        Logger.info(
           `Mensagem de mídia enviada de ${this.fromNumber} para ${this.toNumber}:`,
           body
         );
@@ -501,7 +501,7 @@ class StateMachine {
     const credor = await this.getCredorFromDB(phoneNumber);
 
     if (!credor || (Array.isArray(credor) && credor.length === 0)) {
-      console.log(
+      Logger.warn(
         "Credor sem cadastro no banco de dados. Atendimento chatbot não iniciado para -",
         phoneNumber
       );
@@ -979,7 +979,7 @@ class StateMachine {
           const imagePath = path.resolve("src", "qrcodes", `${idboleto}.png`);
           const imageExists = await utils.checkIfFileExists(imagePath);
 
-          console.log("A imagem foi salva corretamente:", imageExists);
+          Logger.info("A imagem foi salva corretamente:", imageExists);
 
           if (!imageExists) {
             throw new Error("QR Code não encontrado no diretório local");
@@ -1001,7 +1001,7 @@ class StateMachine {
             const date = new Date();
             const formattedDateTime = utils.getBrazilTimeFormatted(date);
 
-            console.log(
+            Logger.success(
               `ACORDO FECHADO! IdDevedor - ${iddevedor} IdAcordo - ${idacordo} para o nº ${phoneNumber} em ${formattedDateTime}`
             );
 
@@ -1103,7 +1103,7 @@ class StateMachine {
               iddevedor
             );
             responseBoletoPixArray.push(responseBoletoPix);
-            console.log(
+            Logger.info(
               `responseBoletoPix executado para ${iddevedor} com resposta ${responseBoletoPix}`
             );
           } catch (error) {
@@ -1183,7 +1183,7 @@ class StateMachine {
               iddevedor
             );
             responseBoletoPixArray.push(responseBoletoPix);
-            console.log(
+            Logger.info(
               `responseBoletoPix executado para ${iddevedor} com resposta ${responseBoletoPix}`
             );
           } catch (error) {
@@ -1251,7 +1251,7 @@ class StateMachine {
         currentState = "INICIO";
       }
 
-      console.log(
+      Logger.info(
         `[Sessão: ${this.sessionName} - Número: ${phoneNumber} - Estado: ${currentState}]`
       );
 
