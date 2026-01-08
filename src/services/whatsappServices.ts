@@ -6,33 +6,30 @@ import {
   ConnectionState,
   downloadMediaMessage,
 } from "@whiskeysockets/baileys";
+import axios from "axios";
 import pino from "pino";
-import { Boom } from "@hapi/boom";
-import * as QRCode from "qrcode";
-import { Logger } from "../utils/logger.js";
 import qrcode from "qrcode-terminal";
-import { ConnectionStatus } from "../types/index.js";
 import path from "path";
-import { fileURLToPath } from "url";
 import fs from "fs-extra";
+import * as QRCode from "qrcode";
+import { Boom } from "@hapi/boom";
+import { Logger } from "../utils/logger.js";
+import { ConnectionStatus } from "../types/index.js";
+import { fileURLToPath } from "url";
 import { normalizeBrazilianNumber } from "../utils/validateAndFormatNumber.js";
 import { executeQuery } from "../config/database/dbConfig.js";
 import { cleanNumber, formatPhoneNumber } from "../utils/formatProne.js";
-import axios from "axios";
+import requests from "../utils/requests.js";
+import StateMachine from "./stateMachineService.js";
 
 export class WhatsAppService {
   private connections = new Map<string, WASocket>();
   private connectionStatus = new Map<string, ConnectionStatus>();
   private authDir = path.resolve(process.cwd(), "auth");
-
-  // 🔒 NOVO: Controle de locks para evitar chamadas concorrentes
   private connectionLocks = new Map<string, boolean>();
   private connectionPromises = new Map<string, Promise<ConnectionStatus>>();
-
-  // 🔄 Controle de tentativas de reconexão
   private reconnectAttempts = new Map<string, number>();
   private qrLocks: Map<string, boolean> = new Map();
-  // Controle por-connection para QR já mostrado e timeouts
   private qrShown: Map<string, boolean> = new Map();
   private qrTimeouts: Map<string, NodeJS.Timeout | null> = new Map();
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
@@ -456,7 +453,7 @@ export class WhatsAppService {
         return;
       }
 
-      // NUMERO RESTRINGIDO OU PROIBIDO
+      // NUMERO RESTRINGIDO OU PROIBIDOBlz
       if (errorCode === 403) {
         Logger.error(
           `Numero restringido (403) para ${connectionId}. Sessão inválida.`
@@ -500,12 +497,7 @@ export class WhatsAppService {
     }
   }
 
-  private async handleIncomingMessage(
-    connectionId: string,
-    messageUpdate: any
-  ) {
-    const { type, messages } = messageUpdate;
-
+  async sendWebhookMessage(connectionId: string, messages: any) {
     let payload = {};
     let mediaName = "";
     let mediaUrl = "";
@@ -519,183 +511,354 @@ export class WhatsAppService {
 
     const socket = this.connections.get(connectionId);
 
-    if (type === "notify") {
-      for (const message of messages) {
-        const me = message.key.fromMe;
-        const from = message.key.remoteJidAlt;
-        const messageContent = message.message;
-        const messageType = Object.keys(messageContent)[0]; // ex: "imageMessage", "videoMessage", "documentMessage" etc.
+    for (const message of messages) {
+      const me = message.key.fromMe;
+      const from = message.key.remoteJidAlt;
+      const messageContent = message.message;
+      const messageType = Object.keys(messageContent)[0]; // ex: "imageMessage", "videoMessage", "documentMessage" etc.
 
-        const hasMedia =
-          messageContent.imageMessage || // imagem
-          messageContent.videoMessage || // video
-          messageContent.audioMessage || // audio
-          messageContent.documentMessage || // documento
-          messageContent.stickerMessage || // figurinha
-          messageContent.pttMessage; // voz
+      const hasMedia =
+        messageContent.imageMessage || // imagem
+        messageContent.videoMessage || // video
+        messageContent.audioMessage || // audio
+        messageContent.documentMessage || // documento
+        messageContent.stickerMessage || // figurinha
+        messageContent.pttMessage; // voz
 
-        if (me) continue;
-        if (!messageContent) continue;
+      if (me) continue;
+      if (!messageContent) continue;
 
-        Logger.info(`Mensagem recebida na conexão ${connectionId}:`, {
-          from: from,
-          message: messageContent?.conversation || "Mídia/Outros",
-        });
+      Logger.info(`Mensagem recebida na conexão ${connectionId}:`, {
+        from: from,
+        message: messageContent?.conversation || "Mídia/Outros",
+      });
 
-        try {
-          const responseStatusUrlWebhook = await executeQuery(
-            `SELECT webhook, ativa_bot FROM codechat_hosts ch WHERE nome='${urlWebhookMedia}'`
-          );
+      try {
+        const responseStatusUrlWebhook = await executeQuery(
+          `SELECT webhook, ativa_bot FROM codechat_hosts ch WHERE nome='${urlWebhookMedia}'`
+        );
 
-          const firstRow = Array.isArray(responseStatusUrlWebhook)
-            ? responseStatusUrlWebhook[0]
-            : (responseStatusUrlWebhook as any)?.rows?.[0];
+        const firstRow = Array.isArray(responseStatusUrlWebhook)
+          ? responseStatusUrlWebhook[0]
+          : (responseStatusUrlWebhook as any)?.rows?.[0];
 
-          const { webhook, ativa_bot } = firstRow || {};
+        const { webhook, ativa_bot } = firstRow || {};
 
-          const fromPhoneNumber = formatPhoneNumber(from);
+        const fromPhoneNumber = formatPhoneNumber(from);
 
-          // Se existir mídia, faz o download e salva
-          if (hasMedia) {
-            try {
-              Logger.info(`⏳ Processando mídia para a sessão ${connectionId}`);
+        // Se existir mídia, faz o download e salva
+        if (hasMedia) {
+          try {
+            Logger.info(`⏳ Processando mídia para a sessão ${connectionId}`);
 
-              const mediaBuffer = await downloadMediaMessage(
-                message,
-                "buffer",
-                {},
-                {
-                  logger: pino({ level: "silent" }),
-                  reuploadRequest: async (msg: any) => {
-                    if (
-                      socket &&
-                      typeof socket.updateMediaMessage === "function"
-                    ) {
-                      return socket.updateMediaMessage(msg);
-                    }
-                    return msg;
-                  },
-                }
-              );
-
-              // Caminho diretório
-              const mediaPath = path.join(
-                __dirname,
-                "../../media",
-                fromPhoneNumber
-              );
-
-              // Verifica de o diretório existe, se não, cria
-              await fs.ensureDir(mediaPath);
-
-              // Extrai extensão e nome do arquivo
-              const msgContent = message.message[messageType];
-              const mimeType =
-                msgContent.mimetype || "application/octet-stream";
-
-              // Remove qualquer parâmetro extra como "; codecs=opus"
-              let cleanMime = mimeType.split(";")[0].trim();
-              let ext = cleanMime.split("/")[1] || "bin";
-
-              // Ajustes específicos
-              if (ext.includes("jpeg")) ext = "jpg";
-              if (cleanMime === "application/pdf") ext = "pdf";
-              if (cleanMime.startsWith("audio/ogg")) ext = "ogg";
-              if (cleanMime.startsWith("audio/mpeg")) ext = "mp3";
-
-              // Organiza o nome do arquivo
-              const fileName = `${Date.now()}.${ext}`;
-              const filePath = path.join(mediaPath, fileName);
-
-              // Salva o arquivo no sistema
-              await fs.writeFile(filePath, mediaBuffer);
-
-              // Converte para base64
-              const base64Data = mediaBuffer.toString("base64");
-
-              // Se o caminho existe, monta os dados da mídia
-              if (await fs.pathExists(filePath)) {
-                Logger.info(`✅ Arquivo salvo em: ${filePath}`);
-
-                mediaName = fileName;
-                mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
-                mediaBase64 = base64Data;
-              } else {
-                console.error(
-                  `❌ O arquivo não foi salvo corretamente em ${filePath}`
-                );
+            const mediaBuffer = await downloadMediaMessage(
+              message,
+              "buffer",
+              {},
+              {
+                logger: pino({ level: "silent" }),
+                reuploadRequest: async (msg: any) => {
+                  if (
+                    socket &&
+                    typeof socket.updateMediaMessage === "function"
+                  ) {
+                    return socket.updateMediaMessage(msg);
+                  }
+                  return msg;
+                },
               }
-            } catch (error) {
+            );
+
+            // Caminho diretório
+            const mediaPath = path.join(
+              __dirname,
+              "../../media",
+              fromPhoneNumber
+            );
+
+            // Verifica de o diretório existe, se não, cria
+            await fs.ensureDir(mediaPath);
+
+            // Extrai extensão e nome do arquivo
+            const msgContent = message.message[messageType];
+            const mimeType = msgContent.mimetype || "application/octet-stream";
+
+            // Remove qualquer parâmetro extra como "; codecs=opus"
+            let cleanMime = mimeType.split(";")[0].trim();
+            let ext = cleanMime.split("/")[1] || "bin";
+
+            // Ajustes específicos
+            if (ext.includes("jpeg")) ext = "jpg";
+            if (cleanMime === "application/pdf") ext = "pdf";
+            if (cleanMime.startsWith("audio/ogg")) ext = "ogg";
+            if (cleanMime.startsWith("audio/mpeg")) ext = "mp3";
+
+            // Organiza o nome do arquivo
+            const fileName = `${Date.now()}.${ext}`;
+            const filePath = path.join(mediaPath, fileName);
+
+            // Salva o arquivo no sistema
+            await fs.writeFile(filePath, mediaBuffer);
+
+            // Converte para base64
+            const base64Data = mediaBuffer.toString("base64");
+
+            // Se o caminho existe, monta os dados da mídia
+            if (await fs.pathExists(filePath)) {
+              Logger.info(`✅ Arquivo salvo em: ${filePath}`);
+
+              mediaName = fileName;
+              mediaUrl = `${urlWebhookMedia}/media/${fromPhoneNumber}/${fileName}`;
+              mediaBase64 = base64Data;
+            } else {
               console.error(
-                `Erro ao processar mídia para a sessão ${connectionId}:`,
-                error
+                `❌ O arquivo não foi salvo corretamente em ${filePath}`
               );
             }
+          } catch (error) {
+            console.error(
+              `Erro ao processar mídia para a sessão ${connectionId}:`,
+              error
+            );
           }
+        }
 
-          try {
-            const remoteJid = message.key.remoteJid;
-            const remoteJidAlt = message.key.remoteJidAlt;
-            const socketUserId = socket?.user?.id;
-            const fromMe = message.key.fromMe;
+        try {
+          const remoteJid = message.key.remoteJid;
+          const remoteJidAlt = message.key.remoteJidAlt;
+          const socketUserId = socket?.user?.id;
+          const fromMe = message.key.fromMe;
 
-            const realFrom = remoteJid.includes("whatsapp.net")
-              ? remoteJid
-              : remoteJidAlt;
+          const realFrom = remoteJid.includes("whatsapp.net")
+            ? remoteJid
+            : remoteJidAlt;
 
-            const realTo = fromMe ? remoteJid : socketUserId;
+          const realTo = fromMe ? remoteJid : socketUserId;
 
-            payload = {
-              sessionName: connectionId,
-              message: {
-                _data: {
-                  from: cleanNumber(realFrom),
-                  to: cleanNumber(realTo),
-                },
-                id: { id: message.key.id },
-                body:
-                  message.message?.conversation ||
-                  message.message?.extendedTextMessage?.text ||
-                  mediaName,
-                timestamp:
-                  message.messageTimestamp?.low ||
-                  Math.floor(Date.now() / 1000),
-                mediaUrl: mediaUrl || "",
+          payload = {
+            sessionName: connectionId,
+            message: {
+              _data: {
+                from: cleanNumber(realFrom),
+                to: cleanNumber(realTo),
               },
-            };
+              id: { id: message.key.id },
+              body:
+                message.message?.conversation ||
+                message.message?.extendedTextMessage?.text ||
+                mediaName,
+              timestamp:
+                message.messageTimestamp?.low || Math.floor(Date.now() / 1000),
+              mediaUrl: mediaUrl || "",
+            },
+          };
 
-            console.log("payload JSON", JSON.stringify(payload, null, 2));
+          console.log("payload JSON", JSON.stringify(payload, null, 2));
 
-            // console.log(
-            //   "📦 Payload final enviado ao webhook:",
-            //   JSON.stringify(payload, null, 2)
-            // );
+          // console.log(
+          //   "📦 Payload final enviado ao webhook:",
+          //   JSON.stringify(payload, null, 2)
+          // );
 
-            // Envia mensagem ao webhook
-            await axios.post(webhook, payload, {
-              headers: { "Content-Type": "application/json" },
-            });
+          // Envia mensagem ao webhook
+          await axios.post(webhook, payload, {
+            headers: { "Content-Type": "application/json" },
+          });
 
-            Logger.success(
-              `📤 Dados enviados para o webhook com sucesso pela sessão ${connectionId}, url: ${
-                mediaUrl || "(sem mídia)"
-              })`
-            );
-          } catch (error: any) {
-            Logger.error(
-              `❌ Erro ao enviar dados para o webhook (sessão ${connectionId}):`,
-              error?.message || error
-            );
-            continue;
-          }
+          Logger.success(
+            `📤 Dados enviados para o webhook com sucesso pela sessão ${connectionId}, url: ${
+              mediaUrl || "(sem mídia)"
+            })`
+          );
         } catch (error: any) {
           Logger.error(
-            `❌ Erro ao consultar webhook (sessão ${connectionId}):`,
+            `❌ Erro ao enviar dados para o webhook (sessão ${connectionId}):`,
             error?.message || error
           );
           continue;
         }
+      } catch (error: any) {
+        Logger.error(
+          `❌ Erro ao consultar webhook (sessão ${connectionId}):`,
+          error?.message || error
+        );
+        continue;
       }
+    }
+  }
+
+  async getCredorFromDB(phoneNumber: string) {
+    try {
+      const query = `
+        SELECT
+          d.iddevedor,
+          d.cpfcnpj,
+          d.nome,
+          t.telefone,
+          t.idtelefones,
+          d.idusuario
+        FROM
+          statustelefone s,
+          telefones2 t,
+          devedor d ,
+          credor c
+        WHERE
+          right(t.telefone,8) = '${phoneNumber}'
+          and d.cpfcnpj = t.cpfcnpj
+          and d.idusuario not in (11, 14)
+          and s.idstatustelefone = t.idstatustelefone
+          and s.fila = 's'
+          and c.idcredor = d.idcredor
+          and c.libera_api_acordo = 's'
+      `;
+
+      const response = await executeQuery(query);
+
+      if (Array.isArray(response) && response.length > 0) {
+        for (const credor of response) {
+          if ("iddevedor" in credor) {
+            const liberaApiQuery = `SELECT libera_api(${credor.iddevedor}) as liberaApi;`;
+            const liberaApiResponse = await executeQuery(liberaApiQuery);
+
+            if (
+              Array.isArray(liberaApiResponse) &&
+              liberaApiResponse.length > 0 &&
+              typeof liberaApiResponse[0] === "object" &&
+              "liberaApi" in liberaApiResponse[0] &&
+              liberaApiResponse[0].liberaApi === "S"
+            ) {
+              console.log(
+                `Libera API encontrada para o número ${phoneNumber}.`
+              );
+              return response[0];
+            }
+          }
+        }
+
+        // If no liberaApi is found, return null
+        console.log(
+          `Nenhuma liberação de API encontrada para o número ${phoneNumber}.`
+        );
+        return null;
+      } else {
+        console.log(`Nenhum credor encontrado para o número ${phoneNumber}.`);
+        return null;
+      }
+    } catch (error) {
+      console.error(
+        `Erro ao buscar credor para o número ${phoneNumber}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  async sendChatMessage(connectionId: string, messages: any) {
+    for (const message of messages) {
+      try {
+        let bot_idstatus: any = 0;
+        let ticketId: any = 0;
+        let ativa_bot: any = "";
+        const redirectSentMap = new Map();
+        const me = message.key.fromMe;
+        const from = message.key.remoteJidAlt;
+        const messageContent = message.message;
+
+        const fromPhoneNumber = formatPhoneNumber(from);
+        const socket = this.connections.get(connectionId);
+
+        if (!socket) {
+          Logger.error(
+            `Socket não encontrado para a conexão ${connectionId} ao processar mensagem.`
+          );
+          return;
+        }
+
+        const stateMachine = StateMachine.getStateMachine(connectionId);
+
+        if (!stateMachine) {
+          Logger.error(
+            `StateMachine não encontrada para a sessão ${connectionId}`
+          );
+          return;
+        }
+
+        const credorExistsFromDB = await this.getCredorFromDB(fromPhoneNumber);
+
+        if (!credorExistsFromDB) {
+          Logger.warn(
+            `Número ${fromPhoneNumber} não autorizado para envio de mensagens. Ignorando.`
+          );
+          continue;
+        }
+
+        const statusAtendimento = await requests.getStatusAtendimento(
+          fromPhoneNumber
+        );
+
+        bot_idstatus =
+          ativa_bot === "N" ? 2 : (statusAtendimento as any[])[0]?.bot_idstatus;
+
+        if (!bot_idstatus) {
+          console.log(
+            "Status de atendimento não encontrado para o usuário -",
+            fromPhoneNumber
+          );
+        } else if (bot_idstatus === 2) {
+          console.log("Usuário em atendimento humano -", bot_idstatus);
+
+          if (!redirectSentMap.get(fromPhoneNumber)) {
+            await socket.sendMessage(from, {
+              text: "Estamos redirecionando seu atendimento para um atendente humano, por favor aguarde...",
+            });
+            redirectSentMap.set(fromPhoneNumber, true);
+          }
+          return;
+        } else if ([1, 3].includes(bot_idstatus) || bot_idstatus === "") {
+          console.log("Usuário em atendimento automático -", bot_idstatus);
+        }
+
+        const ticketStatus = await requests.getTicketStatusByPhoneNumber(
+          fromPhoneNumber
+        );
+
+        if (Array.isArray(ticketStatus) && ticketStatus.length > 0) {
+          ticketId = ticketStatus[0].id;
+          await requests.getAbrirAtendimentoBot(ticketId);
+          console.log(
+            `Iniciando atendimento Bot para ${fromPhoneNumber} no Ticket - ${ticketId}`
+          );
+        } else {
+          await requests.getInserirNumeroCliente(fromPhoneNumber);
+
+          const insertNovoTicket = await requests.getInserirNovoTicket(
+            fromPhoneNumber
+          );
+
+          if (insertNovoTicket && (insertNovoTicket as any).insertId) {
+            ticketId = (insertNovoTicket as any).insertId;
+            await requests.getAbrirAtendimentoBot(ticketId);
+            console.log(
+              `Iniciando atendimento Bot para ${fromPhoneNumber} no Ticket - ${ticketId} (NOVO)`
+            );
+          } else {
+            console.log("Erro ao criar novo número de Ticket no banco.");
+            return;
+          }
+        }
+      } catch (error) {}
+    }
+  }
+
+  private async handleIncomingMessage(
+    connectionId: string,
+    messageUpdate: any
+  ) {
+    const { type, messages } = messageUpdate;
+
+    if (type === "notify") {
+      await this.sendWebhookMessage(connectionId, messages);
+      await this.sendChatMessage(connectionId, messages);
     } else {
       Logger.info(`Atualização de mensagem ignorada.`);
     }
@@ -742,6 +905,101 @@ export class WhatsAppService {
     } catch (error) {
       Logger.error(`Erro ao remover conexão ${connectionId}:`, error);
       return false;
+    }
+  }
+
+  async sendMessage(
+    connectionId: string,
+    to: string,
+    options: {
+      text?: string;
+      type?: "image" | "document" | "video" | "audio";
+      caption?: string;
+      mediaUrl?: string;
+    }
+  ): Promise<boolean> {
+    try {
+      const socket = this.connections.get(connectionId);
+
+      if (!socket || !socket.user) {
+        throw new Error("Sessão invalida ou nao autenticada.");
+      }
+
+      const status = this.connectionStatus.get(connectionId);
+
+      if (status?.status !== "connected") {
+        throw new Error("Conexão não está ativa.");
+      }
+
+      let processedNumber = to;
+      const brazilCountryCode = "55";
+
+      if (processedNumber.startsWith(brazilCountryCode)) {
+        const localNumber = processedNumber.slice(4);
+
+        if (localNumber.length === 9 && localNumber.startsWith("9")) {
+          processedNumber =
+            brazilCountryCode +
+            processedNumber.slice(2, 4) +
+            localNumber.slice(1);
+        }
+      }
+
+      const jid = processedNumber.includes("@")
+        ? processedNumber
+        : `${processedNumber}@s.whatsapp.net`;
+
+      let messageContent: any;
+
+      if (options.text) {
+        messageContent = {
+          text: options.text,
+        };
+      } else if (options.type && options.mediaUrl) {
+        switch (options.type) {
+          case "image":
+            messageContent = {
+              image: { url: options.mediaUrl },
+              caption: options.caption,
+            };
+            break;
+
+          case "document":
+            messageContent = {
+              document: { url: options.mediaUrl },
+              fileName: options.mediaUrl.split("/").pop() || "documento",
+              caption: options.caption,
+            };
+            break;
+
+          case "video":
+            messageContent = {
+              video: { url: options.mediaUrl },
+              caption: options.caption,
+            };
+            break;
+
+          case "audio":
+            messageContent = {
+              audio: { url: options.mediaUrl },
+              mimetype: "audio/mp4",
+            };
+            break;
+
+          default:
+            throw new Error("Tipo de mídia não suportado");
+        }
+      } else {
+        throw new Error("Nenhum conteúdo válido para envio");
+      }
+
+      await socket.sendMessage(jid, messageContent);
+
+      Logger.success(`Mensagem enviada para ${to} via ${connectionId}`);
+      return true;
+    } catch (error) {
+      Logger.error("Erro ao enviar mensagem:", error);
+      throw error;
     }
   }
 
