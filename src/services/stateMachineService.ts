@@ -181,7 +181,7 @@ class StateMachine {
         );
         return null;
       } else {
-        Logger.war(`Nenhum credor encontrado para o número ${phoneNumber}.`);
+        Logger.warn(`Nenhum credor encontrado para o número ${phoneNumber}.`);
         return null;
       }
     } catch (error) {

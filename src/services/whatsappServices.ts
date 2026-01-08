@@ -848,7 +848,36 @@ export class WhatsAppService {
             return;
           }
         }
-      } catch (error) {}
+
+        const demim = 0;
+
+        stateMachine.setTicketId(ticketId);
+        stateMachine.setFromNumber(from);
+        stateMachine.setToNumber(me);
+
+        await stateMachine.getRegisterMessagesDB(
+          from,
+          me,
+          messageContent,
+          ticketId,
+          demim
+        );
+
+        const response = {
+          from: from,
+          body: messageContent,
+        };
+
+        console.log("Mensagem processada pelo StateMachine:", response);
+
+        await stateMachine.handleMessage(fromPhoneNumber, response);
+      } catch (error) {
+        Logger.error(
+          `Erro ao processar mensagem na conexão ${connectionId}:`,
+          error
+        );
+        continue;
+      }
     }
   }
 
