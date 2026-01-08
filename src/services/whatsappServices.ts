@@ -763,14 +763,19 @@ export class WhatsAppService {
         let ativa_bot: any = "";
         const redirectSentMap = new Map();
         const me = message.key.fromMe;
-        const from = message.key.remoteJidAlt;
+        const from = message.key.remoteJid || message.key.remoteJidAlt;
         const messageContent = message.message;
 
         console.log("from", from);
         console.log("me", me);
         console.log("messageContent", messageContent);
 
-        const fromPhoneNumber = formatPhoneNumber(from);
+        const mePhoneNumberFormat = formatPhoneNumber(me);
+        const fromPhoneNumberFormat = formatPhoneNumber(from);
+
+        console.log("Formatted me phone number:", mePhoneNumberFormat);
+        console.log("Formatted from phone number:", fromPhoneNumberFormat);
+
         const socket = this.connections.get(connectionId);
 
         if (!socket) {
@@ -856,8 +861,8 @@ export class WhatsAppService {
         const demim = 0;
 
         stateMachine.setTicketId(ticketId);
-        stateMachine.setFromNumber(from);
-        stateMachine.setToNumber(me);
+        stateMachine.setFromNumber(fromPhoneNumber);
+        stateMachine.setToNumber(mePhoneNumber);
 
         await stateMachine.getRegisterMessagesDB(
           from,
