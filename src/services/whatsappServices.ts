@@ -766,6 +766,10 @@ export class WhatsAppService {
         const from = message.key.remoteJidAlt;
         const messageContent = message.message;
 
+        console.log("from", from);
+        console.log("me", me);
+        console.log("messageContent", messageContent);
+
         const fromPhoneNumber = formatPhoneNumber(from);
         const socket = this.connections.get(connectionId);
 
