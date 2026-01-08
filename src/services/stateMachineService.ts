@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import { WhatsAppService } from "./whatsappServices.js";
 import { Logger } from "../utils/logger.js";
+import { formatPhoneNumber } from "../utils/formatProne.js";
 
 // Tipos básicos para melhor tipagem
 type PhoneNumber = string | number;
@@ -432,8 +433,8 @@ class StateMachine {
     }
 
     const formatDateTime = utils.getCurrentDateTime();
-    const formatFromNumber = utils.formatPhoneNumber(from);
-    const formatToNumber = utils.formatPhoneNumber(to);
+    const formatFromNumber = formatPhoneNumber(from);
+    const formatToNumber = formatPhoneNumber(to);
 
     const dbQuery = `
       INSERT INTO

@@ -12,21 +12,21 @@ function getBrazilTimeFormatted(date: {
   return brazilDate.toLocaleString("pt-BR", { hour12: false });
 }
 
-function formatPhoneNumber(phoneNumber: string) {
-  console.log("FUNCAO 1 Original phone number:", phoneNumber);
-  if (!phoneNumber) {
-    console.error("Phone number is undefined or null");
-    return ""; // Ou outra ação apropriada, dependendo do seu caso
-  }
+// function formatPhoneNumber(phoneNumber: string) {
+//   console.log("FUNCAO 1 Original phone number:", phoneNumber);
+//   if (!phoneNumber) {
+//     console.error("Phone number is undefined or null");
+//     return ""; // Ou outra ação apropriada, dependendo do seu caso
+//   }
 
-  // Realizar formatação apenas se phoneNumber for uma string
-  if (typeof phoneNumber === "string") {
-    return phoneNumber.replace(/[^\d]/g, "").replace(/^.*?(\d{8})$/, "$1");
-  } else {
-    console.error("Phone number is not a string");
-    return ""; // Ou outra ação apropriada, dependendo do seu caso
-  }
-}
+//   // Realizar formatação apenas se phoneNumber for uma string
+//   if (typeof phoneNumber === "string") {
+//     return phoneNumber.replace(/[^\d]/g, "").replace(/^.*?(\d{8})$/, "$1");
+//   } else {
+//     console.error("Phone number is not a string");
+//     return ""; // Ou outra ação apropriada, dependendo do seu caso
+//   }
+// }
 
 function getCurrentDateTime() {
   const now = new Date();
@@ -811,7 +811,6 @@ export default {
   formatCodigoBoleto,
   formatCodigoPix,
   getCurrentDateTime,
-  formatPhoneNumber,
   checkIfFileExists,
   getBrazilTimeFormatted,
   resolveFromNumber,
