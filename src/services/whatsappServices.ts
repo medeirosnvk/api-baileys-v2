@@ -758,24 +758,6 @@ export class WhatsAppService {
   async sendChatMessage(connectionId: string, messages: any) {
     for (const message of messages) {
       try {
-        let bot_idstatus: any = 0;
-        let ticketId: any = 0;
-        let ativa_bot: any = "";
-        const redirectSentMap = new Map();
-        const me = message.key.fromMe;
-        const from = message.key.remoteJid || message.key.remoteJidAlt;
-        const messageContent = message.message;
-
-        console.log("from", from);
-        console.log("me", me);
-        console.log("messageContent", messageContent);
-
-        const mePhoneNumberFormat = formatPhoneNumber(me);
-        const fromPhoneNumberFormat = formatPhoneNumber(from);
-
-        console.log("Formatted me phone number:", mePhoneNumberFormat);
-        console.log("Formatted from phone number:", fromPhoneNumberFormat);
-
         const socket = this.connections.get(connectionId);
 
         if (!socket) {
@@ -784,6 +766,27 @@ export class WhatsAppService {
           );
           return;
         }
+
+        let bot_idstatus: any = 0;
+        let ticketId: any = 0;
+        let ativa_bot: any = "";
+        const redirectSentMap = new Map();
+        const messageContent = message.message;
+        const remoteJid = message.key.remoteJid;
+        const remoteJidAlt = message.key.remoteJidAlt;
+        const socketUserId = socket?.user?.id;
+        const fromMe = message.key.fromMe;
+
+        const realFrom = remoteJid.includes("whatsapp.net")
+          ? remoteJid
+          : remoteJidAlt;
+        const realTo = fromMe ? remoteJid : socketUserId;
+
+        const mePhoneNumberFormat = formatPhoneNumber(realTo);
+        const fromPhoneNumberFormat = formatPhoneNumber(realFrom);
+
+        console.log("Formatted me phone number:", mePhoneNumberFormat);
+        console.log("Formatted from phone number:", fromPhoneNumberFormat);
 
         const stateMachine = StateMachine.getStateMachine(connectionId);
 
