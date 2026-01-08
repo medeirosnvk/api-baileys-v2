@@ -4,6 +4,7 @@ import utils from "../utils/utils.js";
 import fs from "fs";
 import path from "path";
 import { WhatsAppService } from "./whatsappServices.js";
+import { Logger } from "../utils/logger.js";
 
 // Tipos básicos para melhor tipagem
 type PhoneNumber = string | number;
@@ -66,7 +67,7 @@ class StateMachine {
 
     // Registra no stateMachines da própria classe
     StateMachine.stateMachines[sessionName] = this;
-    console.log(
+    Logger.success(
       `StateMachine criada e registrada para a sessão: ${sessionName}`
     );
   }

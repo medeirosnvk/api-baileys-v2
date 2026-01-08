@@ -2,14 +2,9 @@ import axios from "axios";
 import utils from "../utils/utils.js";
 import axiosApiInstance from "./axiosApiInstance.js";
 
-// Explicitly assert the type of axiosApiInstance using the return type of axios.create
-const typedAxiosApiInstance = axiosApiInstance as unknown as ReturnType<
-  typeof axios.create
->;
-
-// Use typedAxiosApiInstance in all requests
+// Use axiosApiInstance.axiosApiInstance in all requests
 async function getAcordosFirmados(document: any) {
-  const response = await typedAxiosApiInstance.get(
+  const response = await axiosApiInstance.axiosApiInstance.get(
     `/lista-acordos-firmados?documento=${document}`
   );
 
@@ -17,7 +12,7 @@ async function getAcordosFirmados(document: any) {
 }
 
 async function getAcordosFirmadosDetalhado(idacordo: any) {
-  const response = await typedAxiosApiInstance.get(
+  const response = await axiosApiInstance.axiosApiInstance.get(
     `/lista-acordos-firmados-detalhado?idacordo=${idacordo}`
   );
 
@@ -25,7 +20,7 @@ async function getAcordosFirmadosDetalhado(idacordo: any) {
 }
 
 async function getCredorDividas(iddevedor: any, dataBase: any) {
-  const response = await typedAxiosApiInstance.get(
+  const response = await axiosApiInstance.axiosApiInstance.get(
     `/credores/dividas?iddevedor=${iddevedor}&database=${dataBase}`
   );
 
@@ -33,7 +28,7 @@ async function getCredorDividas(iddevedor: any, dataBase: any) {
 }
 
 async function getCredorDividasTotais(iddevedor: any, dataBase: any) {
-  const response = await typedAxiosApiInstance.get(
+  const response = await axiosApiInstance.axiosApiInstance.get(
     `/credores/dividas/total?iddevedor=${iddevedor}&database=${dataBase}`
   );
 
@@ -41,7 +36,7 @@ async function getCredorDividasTotais(iddevedor: any, dataBase: any) {
 }
 
 async function getCredorInfo(document: any) {
-  const response = await typedAxiosApiInstance.get(
+  const response = await axiosApiInstance.axiosApiInstance.get(
     `/lista-credores?documento=${document}`
   );
 
@@ -49,7 +44,7 @@ async function getCredorInfo(document: any) {
 }
 
 async function getCredorOfertas(iddevedor: any) {
-  const response = await typedAxiosApiInstance.get(
+  const response = await axiosApiInstance.axiosApiInstance.get(
     `/credores/oferta-parcelas?iddevedor=${iddevedor}`
   );
 
@@ -57,7 +52,7 @@ async function getCredorOfertas(iddevedor: any) {
 }
 
 async function getCredorVerBoleto(iddevedor: any) {
-  const response = await typedAxiosApiInstance.get(
+  const response = await axiosApiInstance.axiosApiInstance.get(
     `/credores/oferta-parcelas?iddevedor=${iddevedor}`
   );
 
@@ -66,7 +61,10 @@ async function getCredorVerBoleto(iddevedor: any) {
 
 async function postDadosAcordo(props: any) {
   try {
-    const { data } = await typedAxiosApiInstance.post("/insert-acordo", props);
+    const { data } = await axiosApiInstance.axiosApiInstance.post(
+      "/insert-acordo",
+      props
+    );
     return data;
   } catch (error) {
     const errorMessage = "Erro ao inserir dados do acordo";
@@ -78,7 +76,7 @@ async function postDadosAcordo(props: any) {
 
 async function postDadosPromessa(props: any) {
   try {
-    const { data } = await typedAxiosApiInstance.post(
+    const { data } = await axiosApiInstance.axiosApiInstance.post(
       "/insert-promessa",
       props
     );
@@ -93,7 +91,7 @@ async function postDadosPromessa(props: any) {
 
 async function postDadosRecibo(props: any) {
   try {
-    const { data } = await typedAxiosApiInstance.post(
+    const { data } = await axiosApiInstance.axiosApiInstance.post(
       "/insert-recibo/parcelado",
       props
     );
@@ -108,7 +106,7 @@ async function postDadosRecibo(props: any) {
 
 async function inserirAcordoMaster(iddevedor: any, plano: any, token: any) {
   try {
-    const { data } = await typedAxiosApiInstance.post(
+    const { data } = await axiosApiInstance.axiosApiInstance.post(
       "/registro-master-acordo",
       { iddevedor, plano },
       { headers: { Authorization: `Bearer ${token}` } }
@@ -124,7 +122,7 @@ async function inserirAcordoMaster(iddevedor: any, plano: any, token: any) {
 
 async function getAtualizarPromessas(idacordo: any) {
   try {
-    const { data } = await typedAxiosApiInstance.get(
+    const { data } = await axiosApiInstance.axiosApiInstance.get(
       `/atualizar-valores-promessas?idacordo=${idacordo}`
     );
     return data;
@@ -136,7 +134,7 @@ async function getAtualizarPromessas(idacordo: any) {
 
 async function getAtualizarValores(idacordo: any) {
   try {
-    const { data } = await typedAxiosApiInstance.get(
+    const { data } = await axiosApiInstance.axiosApiInstance.get(
       `/atualizar-valores?idacordo=${idacordo}`
     );
     return data;
@@ -148,7 +146,7 @@ async function getAtualizarValores(idacordo: any) {
 
 async function getDataValdoc(idacordo: any) {
   try {
-    const { data } = await typedAxiosApiInstance.get(
+    const { data } = await axiosApiInstance.axiosApiInstance.get(
       `/lista-promessas-datavaldoc?idacordo=${idacordo}`
     );
 
@@ -161,7 +159,10 @@ async function getDataValdoc(idacordo: any) {
 
 async function postDadosBoleto(props: any) {
   try {
-    const { data } = await typedAxiosApiInstance.post("/insert-boleto", props);
+    const { data } = await axiosApiInstance.axiosApiInstance.post(
+      "/insert-boleto",
+      props
+    );
     return data;
   } catch (error) {
     const errorMessage = "Erro ao inserir dados do boleto";
@@ -272,7 +273,7 @@ async function postBoletoFinal(
 
 async function getIdBoleto(idacordo: any) {
   try {
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/busca-idboleto?idacordo=${idacordo}`
     );
     return response.data;
@@ -284,7 +285,7 @@ async function getIdBoleto(idacordo: any) {
 
 async function postAtualizarValores(props: any) {
   try {
-    const { data } = await typedAxiosApiInstance.post(
+    const { data } = await axiosApiInstance.axiosApiInstance.post(
       "/atualizar-valores-boleto",
       props
     );
@@ -305,7 +306,7 @@ async function getImagemBoleto(props: {
   try {
     const { idacordo, idboleto, banco } = props;
 
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/busca-imagem-boleto?idacordo=${idacordo}&idboleto=${idboleto}&banco=${banco}`,
       {
         maxRedirects: 0, // Impede o Axios de seguir redirecionamentos
@@ -333,7 +334,7 @@ async function getImagemBoleto(props: {
 async function getImagemQrCode(props: { idboleto: any }) {
   try {
     const { idboleto } = props;
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/busca-qrcode?idboleto=${idboleto}`,
       {
         maxRedirects: 0, // Impede o Axios de seguir redirecionamentos
@@ -361,7 +362,7 @@ async function getImagemQrCode(props: { idboleto: any }) {
 async function getDataEmv(props: { idboleto: any }) {
   try {
     const { idboleto } = props;
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/busca-emv?idboleto=${idboleto}`,
       {
         maxRedirects: 0, // Impede o Axios de seguir redirecionamentos
@@ -388,7 +389,7 @@ async function getDataEmv(props: { idboleto: any }) {
 
 async function getDataBoletoPix(iddevedor: any) {
   try {
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/busca-boleto-pix?iddevedor=${iddevedor}`
     );
 
@@ -401,7 +402,7 @@ async function getDataBoletoPix(iddevedor: any) {
 
 async function getTicketStatusByPhoneNumber(phoneNumber: any) {
   try {
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/ticket-status-phone-number?phoneNumber=${phoneNumber}`
     );
     return response.data;
@@ -413,7 +414,7 @@ async function getTicketStatusByPhoneNumber(phoneNumber: any) {
 
 async function getAbrirAtendimentoBot(ticketId: any) {
   try {
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/atendimento-bot?id=${ticketId}`
     );
     return response.data;
@@ -425,7 +426,7 @@ async function getAbrirAtendimentoBot(ticketId: any) {
 
 async function getAbrirAtendimentoHumano(ticketId: any) {
   try {
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/atendimento-humano-abrir?id=${ticketId}`
     );
     return response.data;
@@ -437,7 +438,7 @@ async function getAbrirAtendimentoHumano(ticketId: any) {
 
 async function getFecharAtendimentoHumano(ticketId: any) {
   try {
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/atendimento-humano-fechar?id=${ticketId}`
     );
     return response.data;
@@ -449,7 +450,7 @@ async function getFecharAtendimentoHumano(ticketId: any) {
 
 async function getInserirNumeroCliente(phoneNumber: any) {
   try {
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/inserir-numero-cliente?phoneNumber=${phoneNumber}`
     );
     return response.data;
@@ -461,7 +462,7 @@ async function getInserirNumeroCliente(phoneNumber: any) {
 
 async function getInserirNovoTicket(phoneNumber: any) {
   try {
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/inserir-numero-ticket?phoneNumber=${phoneNumber}`
     );
     return response.data;
@@ -473,7 +474,7 @@ async function getInserirNovoTicket(phoneNumber: any) {
 
 async function getStatusAtendimento(phoneNumber: any) {
   try {
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/status-atendimento?phoneNumber=${phoneNumber}`
     );
     return response.data;
@@ -485,7 +486,7 @@ async function getStatusAtendimento(phoneNumber: any) {
 
 async function getCredorByPhoneNumber(phoneNumber: any) {
   try {
-    const response = await typedAxiosApiInstance.get(
+    const response = await axiosApiInstance.axiosApiInstance.get(
       `/credor-db?phoneNumber=${phoneNumber}`
     );
     return response.data;
