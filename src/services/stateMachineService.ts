@@ -433,8 +433,10 @@ class StateMachine {
     }
 
     const formatDateTime = utils.getCurrentDateTime();
-    const formatFromNumber = formatPhoneNumber(from);
-    const formatToNumber = formatPhoneNumber(to);
+    const formatFromNumber = utils.formatPhoneNumberNew(from);
+    const formatToNumber = utils.formatPhoneNumberNew(to);
+
+    console.log("FUNCAO 3 Original from number:", from);
 
     const dbQuery = `
       INSERT INTO
