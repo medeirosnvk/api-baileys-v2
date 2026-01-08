@@ -37,10 +37,6 @@ interface ConnectedUser {
   ticketId: TicketId;
 }
 
-interface WhatsAppClient {
-  sendMessage(origin: string, message: string | any): Promise<void>;
-}
-
 class StateMachine {
   // Armazena todas as máquinas de estado
   static stateMachines: Record<string, StateMachine> = {};

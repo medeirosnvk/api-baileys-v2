@@ -13,6 +13,7 @@ function getBrazilTimeFormatted(date: {
 }
 
 function formatPhoneNumber(phoneNumber: string) {
+  console.log("FUNCAO 1 Original phone number:", phoneNumber);
   if (!phoneNumber) {
     console.error("Phone number is undefined or null");
     return ""; // Ou outra ação apropriada, dependendo do seu caso
