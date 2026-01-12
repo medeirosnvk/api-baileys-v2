@@ -1,5 +1,18 @@
-export function formatPhoneNumber(phoneNumber: string) {
-  console.log("FUNCAO 2 Original phone number:", phoneNumber);
+export function formatToPhoneNumber(phoneNumber: string): string {
+  console.log("Limpando TO number:", phoneNumber);
+
+  if (!phoneNumber || typeof phoneNumber !== "string") {
+    console.error("Phone number inválido");
+    return "";
+  }
+
+  const onlyNumbers = phoneNumber.replace(/\D/g, "");
+
+  return onlyNumbers.slice(-8);
+}
+
+export function formatFromPhoneNumber(phoneNumber: string) {
+  console.log("Limpando FROM number:", phoneNumber);
 
   if (!phoneNumber) {
     console.error("Phone number is undefined or null");

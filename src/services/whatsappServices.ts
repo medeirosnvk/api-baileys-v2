@@ -18,7 +18,12 @@ import { ConnectionStatus } from "../types/index.js";
 import { fileURLToPath } from "url";
 import { normalizeBrazilianNumber } from "../utils/validateAndFormatNumber.js";
 import { executeQuery } from "../config/database/dbConfig.js";
-import { cleanNumber, formatPhoneNumber } from "../utils/formatProne.js";
+import {
+  cleanNumber,
+  formatFromPhoneNumber,
+  formatPhoneNumber,
+  formatToPhoneNumber,
+} from "../utils/formatProne.js";
 import requests from "../utils/requests.js";
 import StateMachine from "./stateMachineService.js";
 
@@ -783,11 +788,11 @@ export class WhatsAppService {
           : remoteJidAlt;
         const realTo = fromMe ? remoteJid : socketUserId;
 
-        const mePhoneNumberFormat = formatPhoneNumber(realTo);
-        const fromPhoneNumberFormat = formatPhoneNumber(realFrom);
+        const mePhoneNumberFormat = formatToPhoneNumber(realTo);
+        const fromPhoneNumberFormat = formatFromPhoneNumber(realFrom);
 
-        console.log("Formatted me phone number:", mePhoneNumberFormat);
-        console.log("Formatted from phone number:", fromPhoneNumberFormat);
+        console.log("TO number limpo:", mePhoneNumberFormat);
+        console.log("FROM number limpo:", fromPhoneNumberFormat);
 
         const stateMachine = StateMachine.getStateMachine(connectionId);
 
