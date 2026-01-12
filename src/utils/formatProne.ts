@@ -6,9 +6,24 @@ export function formatToPhoneNumber(phoneNumber: string): string {
     return "";
   }
 
-  const onlyNumbers = phoneNumber.replace(/\D/g, "");
+  let onlyNumbers = phoneNumber.replace(/\D/g, "");
 
-  return onlyNumbers.slice(-8);
+  // remove código do país 55
+  if (onlyNumbers.startsWith("55")) {
+    onlyNumbers = onlyNumbers.slice(2);
+  }
+
+  // remove DDD
+  if (onlyNumbers.length >= 10) {
+    onlyNumbers = onlyNumbers.slice(2);
+  }
+
+  // remove nono dígito se existir
+  if (onlyNumbers.length === 9 && onlyNumbers.startsWith("9")) {
+    onlyNumbers = onlyNumbers.slice(1);
+  }
+
+  return onlyNumbers.slice(0, 8);
 }
 
 export function formatFromPhoneNumber(phoneNumber: string) {
