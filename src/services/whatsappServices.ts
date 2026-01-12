@@ -879,7 +879,11 @@ export class WhatsAppService {
 
         const response = {
           from: fromPhoneNumberFormat,
-          body: messageContent,
+          body:
+            messageContent.conversation ||
+            messageContent.extendedTextMessage?.text ||
+            "",
+          messageType: Object.keys(messageContent)[0],
         };
 
         console.log("Mensagem recebida para o StateMachine:", response);
