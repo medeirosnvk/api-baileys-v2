@@ -759,6 +759,7 @@ export class WhatsAppService {
     for (const message of messages) {
       try {
         const socket = this.connections.get(connectionId);
+        console.log("socket no sendChatMessage:", socket);
 
         if (!socket) {
           Logger.error(
@@ -865,6 +866,10 @@ export class WhatsAppService {
 
         const demim = 0;
 
+        console.log("Ticket ID atribuído:", ticketId);
+        console.log("fromPhoneNumberFormat:", fromPhoneNumberFormat);
+        console.log("mePhoneNumberFormat:", mePhoneNumberFormat);
+
         stateMachine.setTicketId(ticketId);
         stateMachine.setFromNumber(fromPhoneNumberFormat);
         stateMachine.setToNumber(mePhoneNumberFormat);
@@ -883,10 +888,7 @@ export class WhatsAppService {
             messageContent.conversation ||
             messageContent.extendedTextMessage?.text ||
             "",
-          messageType: Object.keys(messageContent)[0],
         };
-
-        console.log("Mensagem recebida para o StateMachine:", response);
 
         await stateMachine.handleMessage(fromPhoneNumberFormat, response);
       } catch (error) {

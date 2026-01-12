@@ -432,14 +432,9 @@ class StateMachine {
       this.userStates[from] = {} as UserState; // inicialize o objeto se não existir
     }
 
-    console.log("FUNCAO 3 - from:", from, "to:", to, "message:", message);
-
     const formatDateTime = utils.getCurrentDateTime();
     const formatFromNumber = utils.formatPhoneNumberNew(from);
     const formatToNumber = utils.formatPhoneNumberNew(to);
-
-    console.log("FUNCAO 3 Original from number:", from);
-    console.log("FUNCAO 3 Formatted from number:", formatFromNumber);
 
     const dbQuery = `
       INSERT INTO
@@ -519,9 +514,7 @@ class StateMachine {
     phoneNumber: PhoneNumber,
     response: { body: string }
   ): Promise<void> {
-    console.log("HANDLE MENU State Response Body:", response.body);
     const initialStateResponse = response.body.trim();
-    console.log("HANDLE MENU Initial State Response:", initialStateResponse);
     switch (initialStateResponse) {
       case "1":
         try {
