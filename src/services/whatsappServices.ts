@@ -21,7 +21,6 @@ import { executeQuery } from "../config/database/dbConfig.js";
 import {
   cleanNumber,
   formatFromPhoneNumber,
-  formatPhoneNumber,
   formatToPhoneNumber,
 } from "../utils/formatProne.js";
 import requests from "../utils/requests.js";
@@ -551,7 +550,7 @@ export class WhatsAppService {
 
         const { webhook, ativa_bot } = firstRow || {};
 
-        const fromPhoneNumber = formatPhoneNumber(from);
+        const fromPhoneNumber = formatFromPhoneNumber(from);
 
         // Se existir mídia, faz o download e salva
         if (hasMedia) {

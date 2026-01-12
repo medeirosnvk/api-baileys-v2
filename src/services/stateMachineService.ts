@@ -5,7 +5,6 @@ import fs from "fs";
 import path from "path";
 import { WhatsAppService } from "./whatsappServices.js";
 import { Logger } from "../utils/logger.js";
-import { formatPhoneNumber } from "../utils/formatProne.js";
 
 // Tipos básicos para melhor tipagem
 type PhoneNumber = string | number;
