@@ -797,17 +797,19 @@ export class WhatsAppService {
           return;
         }
 
-        const credorExistsFromDB = await this.getCredorFromDB(fromPhoneNumber);
+        const credorExistsFromDB = await this.getCredorFromDB(
+          fromPhoneNumberFormat
+        );
 
         if (!credorExistsFromDB) {
           Logger.warn(
-            `Número ${fromPhoneNumber} não autorizado para envio de mensagens. Ignorando.`
+            `Número ${fromPhoneNumberFormat} não autorizado para envio de mensagens. Ignorando.`
           );
           continue;
         }
 
         const statusAtendimento = await requests.getStatusAtendimento(
-          fromPhoneNumber
+          fromPhoneNumberFormat
         );
 
         bot_idstatus =
@@ -816,16 +818,16 @@ export class WhatsAppService {
         if (!bot_idstatus) {
           console.log(
             "Status de atendimento não encontrado para o usuário -",
-            fromPhoneNumber
+            fromPhoneNumberFormat
           );
         } else if (bot_idstatus === 2) {
           console.log("Usuário em atendimento humano -", bot_idstatus);
 
-          if (!redirectSentMap.get(fromPhoneNumber)) {
-            await socket.sendMessage(from, {
+          if (!redirectSentMap.get(fromPhoneNumberFormat)) {
+            await socket.sendMessage(fromPhoneNumberFormat, {
               text: "Estamos redirecionando seu atendimento para um atendente humano, por favor aguarde...",
             });
-            redirectSentMap.set(fromPhoneNumber, true);
+            redirectSentMap.set(fromPhoneNumberFormat, true);
           }
           return;
         } else if ([1, 3].includes(bot_idstatus) || bot_idstatus === "") {
@@ -833,27 +835,27 @@ export class WhatsAppService {
         }
 
         const ticketStatus = await requests.getTicketStatusByPhoneNumber(
-          fromPhoneNumber
+          fromPhoneNumberFormat
         );
 
         if (Array.isArray(ticketStatus) && ticketStatus.length > 0) {
           ticketId = ticketStatus[0].id;
           await requests.getAbrirAtendimentoBot(ticketId);
           console.log(
-            `Iniciando atendimento Bot para ${fromPhoneNumber} no Ticket - ${ticketId}`
+            `Iniciando atendimento Bot para ${fromPhoneNumberFormat} no Ticket - ${ticketId}`
           );
         } else {
-          await requests.getInserirNumeroCliente(fromPhoneNumber);
+          await requests.getInserirNumeroCliente(fromPhoneNumberFormat);
 
           const insertNovoTicket = await requests.getInserirNovoTicket(
-            fromPhoneNumber
+            fromPhoneNumberFormat
           );
 
           if (insertNovoTicket && (insertNovoTicket as any).insertId) {
             ticketId = (insertNovoTicket as any).insertId;
             await requests.getAbrirAtendimentoBot(ticketId);
             console.log(
-              `Iniciando atendimento Bot para ${fromPhoneNumber} no Ticket - ${ticketId} (NOVO)`
+              `Iniciando atendimento Bot para ${fromPhoneNumberFormat} no Ticket - ${ticketId} (NOVO)`
             );
           } else {
             console.log("Erro ao criar novo número de Ticket no banco.");
@@ -864,25 +866,25 @@ export class WhatsAppService {
         const demim = 0;
 
         stateMachine.setTicketId(ticketId);
-        stateMachine.setFromNumber(fromPhoneNumber);
-        stateMachine.setToNumber(mePhoneNumber);
+        stateMachine.setFromNumber(fromPhoneNumberFormat);
+        stateMachine.setToNumber(mePhoneNumberFormat);
 
         await stateMachine.getRegisterMessagesDB(
-          from,
-          me,
+          fromPhoneNumberFormat,
+          mePhoneNumberFormat,
           messageContent,
           ticketId,
           demim
         );
 
         const response = {
-          from: from,
+          from: fromPhoneNumberFormat,
           body: messageContent,
         };
 
         console.log("Mensagem recebida para o StateMachine:", response);
 
-        await stateMachine.handleMessage(fromPhoneNumber, response);
+        await stateMachine.handleMessage(fromPhoneNumberFormat, response);
       } catch (error) {
         Logger.error(
           `Erro ao processar mensagem na conexão ${connectionId}:`,
