@@ -432,6 +432,8 @@ class StateMachine {
       this.userStates[from] = {} as UserState; // inicialize o objeto se não existir
     }
 
+    console.log("FUNCAO 3 - from:", from, "to:", to, "message:", message);
+
     const formatDateTime = utils.getCurrentDateTime();
     const formatFromNumber = utils.formatPhoneNumberNew(from);
     const formatToNumber = utils.formatPhoneNumberNew(to);

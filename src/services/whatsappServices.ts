@@ -1059,12 +1059,14 @@ export class WhatsAppService {
   ): Promise<boolean> {
     try {
       const socket = this.connections.get(connectionId);
+      console.log("sendTextMessage Socket encontrado:", socket);
 
       if (!socket || !socket.user) {
         throw new Error("Sessão invalida ou nao autenticada.");
       }
 
       const status = this.connectionStatus.get(connectionId);
+      console.log("sendTextMessage status da conexão:", status);
 
       if (status?.status !== "connected") {
         throw new Error("Conexão não está ativa.");
