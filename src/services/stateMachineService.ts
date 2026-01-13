@@ -46,6 +46,7 @@ class StateMachine {
   timer: Record<string, any>;
   ticketId: TicketId;
   fromNumber: any;
+  realFromNumber: any;
   toNumber: any;
   sessionName: string;
   private whatsappService: WhatsAppService;
@@ -57,6 +58,7 @@ class StateMachine {
     this.timer = {};
     this.ticketId = null;
     this.fromNumber = null;
+    this.realFromNumber = null;
     this.toNumber = null;
     this.sessionName = sessionName;
     this.whatsappService = whatsappService;
@@ -117,6 +119,10 @@ class StateMachine {
 
   async setFromNumber(from: string): Promise<void> {
     this.fromNumber = from;
+  }
+
+  async setRealFromNumber(from: string): Promise<void> {
+    this.realFromNumber = from;
   }
 
   async setToNumber(to: string): Promise<void> {
@@ -332,20 +338,28 @@ class StateMachine {
           demim
         );
 
-        await this.whatsappService.sendMessage(connectionId, this.fromNumber, {
-          text: body,
-        });
+        await this.whatsappService.sendMessage(
+          connectionId,
+          this.realFromNumber,
+          {
+            text: body,
+          }
+        );
 
         Logger.info(
           `Mensagem enviada de ${this.toNumber} para ${this.fromNumber}:`,
           body
         );
       } else {
-        await this.whatsappService.sendMessage(connectionId, this.fromNumber, {
-          type: body.type,
-          mediaUrl: body.mediaUrl,
-          caption: body.caption,
-        });
+        await this.whatsappService.sendMessage(
+          connectionId,
+          this.realFromNumber,
+          {
+            type: body.type,
+            mediaUrl: body.mediaUrl,
+            caption: body.caption,
+          }
+        );
 
         Logger.info(
           `Mensagem enviada de ${this.fromNumber} para ${this.toNumber}:`,

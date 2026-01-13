@@ -872,6 +872,7 @@ export class WhatsAppService {
         stateMachine.setTicketId(ticketId);
         stateMachine.setFromNumber(fromPhoneNumberFormat);
         stateMachine.setToNumber(mePhoneNumberFormat);
+        stateMachine.setRealFromNumber(realFrom);
 
         await stateMachine.getRegisterMessagesDB(
           fromPhoneNumberFormat,
@@ -985,26 +986,6 @@ export class WhatsAppService {
         throw new Error("Conexão não está ativa.");
       }
 
-      let processedNumber = to;
-      const brazilCountryCode = "55";
-
-      if (processedNumber.startsWith(brazilCountryCode)) {
-        const localNumber = processedNumber.slice(4);
-
-        if (localNumber.length === 9 && localNumber.startsWith("9")) {
-          processedNumber =
-            brazilCountryCode +
-            processedNumber.slice(2, 4) +
-            localNumber.slice(1);
-        }
-      }
-
-      const jid = processedNumber.includes("@")
-        ? processedNumber
-        : `${processedNumber}@s.whatsapp.net`;
-
-      console.log("JID processado:", jid);
-
       let messageContent: any;
 
       if (options.text) {
@@ -1045,7 +1026,7 @@ export class WhatsAppService {
         throw new Error("Nenhum conteúdo válido para envio");
       }
 
-      await socket.sendMessage(jid, messageContent);
+      await socket.sendMessage(to, messageContent);
 
       Logger.success(`Mensagem enviada para ${to} via ${connectionId}`);
       return true;
