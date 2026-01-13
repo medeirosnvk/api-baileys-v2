@@ -309,10 +309,12 @@ class StateMachine {
           caption?: string;
         }
   ): Promise<void> {
+    console.log("POST MESSAGE");
+
     Logger.info(`Horário da mensagem ENVIADA ao cliente: ${new Date()}`);
 
     console.log("Connection ID:", connectionId);
-    console.log("body postMessage:", body);
+    console.log("Body postMessage:", body);
 
     const demim = 1;
 
@@ -497,6 +499,8 @@ class StateMachine {
     origin: string,
     phoneNumber: PhoneNumber
   ): Promise<void> {
+    console.log("HANDLE INITIAL STATE");
+
     const credor = await this.getCredorFromDB(phoneNumber);
 
     if (!credor || (Array.isArray(credor) && credor.length === 0)) {
@@ -537,6 +541,7 @@ class StateMachine {
             await this._postMessage(origin, messageErro);
             await this._handleInitialState(origin, phoneNumber);
           } else if (credorInfo && credorInfo.length === 1) {
+            console.log("HANDLE MENU STATE - CASE 1 - 1 CREDOR");
             const credorMessage = utils.formatCredorInfo(credorInfo);
             const messageSucess = `${credorMessage}`;
 
@@ -1243,6 +1248,8 @@ class StateMachine {
     response: { from: string }
   ): Promise<void> {
     try {
+      console.log("HANDLE MESSAGE");
+
       let { currentState } = this._getState(phoneNumber);
       const origin = response.from;
 
@@ -1256,10 +1263,14 @@ class StateMachine {
 
       switch (currentState) {
         case "INICIO":
+          console.log("HANDLE MESSAGE - INICIO");
+
           await this._handleInitialState(origin, phoneNumber);
           this._setCurrentState(phoneNumber, "MENU");
           break;
         case "MENU":
+          console.log("HANDLE MESSAGE - MENU");
+
           await this._handleMenuState(origin, phoneNumber, response as any);
           break;
         case "CREDOR":
