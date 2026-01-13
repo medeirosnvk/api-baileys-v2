@@ -1003,6 +1003,8 @@ export class WhatsAppService {
         ? processedNumber
         : `${processedNumber}@s.whatsapp.net`;
 
+      console.log("JID processado:", jid);
+
       let messageContent: any;
 
       if (options.text) {
@@ -1017,7 +1019,6 @@ export class WhatsAppService {
               caption: options.caption,
             };
             break;
-
           case "document":
             messageContent = {
               document: { url: options.mediaUrl },
@@ -1025,21 +1026,18 @@ export class WhatsAppService {
               caption: options.caption,
             };
             break;
-
           case "video":
             messageContent = {
               video: { url: options.mediaUrl },
               caption: options.caption,
             };
             break;
-
           case "audio":
             messageContent = {
               audio: { url: options.mediaUrl },
               mimetype: "audio/mp4",
             };
             break;
-
           default:
             throw new Error("Tipo de mídia não suportado");
         }
