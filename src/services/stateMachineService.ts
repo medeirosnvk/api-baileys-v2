@@ -332,16 +332,16 @@ class StateMachine {
           demim
         );
 
-        await this.whatsappService.sendMessage(connectionId, this.toNumber, {
+        await this.whatsappService.sendMessage(connectionId, this.fromNumber, {
           text: body,
         });
 
         Logger.info(
-          `Mensagem enviada de ${this.fromNumber} para ${this.toNumber}:`,
+          `Mensagem enviada de ${this.toNumber} para ${this.fromNumber}:`,
           body
         );
       } else {
-        await this.whatsappService.sendMessage(connectionId, this.toNumber, {
+        await this.whatsappService.sendMessage(connectionId, this.fromNumber, {
           type: body.type,
           mediaUrl: body.mediaUrl,
           caption: body.caption,
