@@ -763,7 +763,6 @@ export class WhatsAppService {
     for (const message of messages) {
       try {
         const socket = this.connections.get(connectionId);
-        console.log("socket no sendChatMessage:", socket);
 
         if (!socket) {
           Logger.error(
@@ -883,6 +882,8 @@ export class WhatsAppService {
         );
 
         const response = {
+          connectionId: connectionId,
+          to: mePhoneNumberFormat,
           from: fromPhoneNumberFormat,
           body:
             messageContent.conversation ||
@@ -890,7 +891,9 @@ export class WhatsAppService {
             "",
         };
 
-        await stateMachine.handleMessage(fromPhoneNumberFormat, response);
+        console.log("Mensagem para StateMachine:", response);
+
+        await stateMachine.handleMessage(response);
       } catch (error) {
         Logger.error(
           `Erro ao processar mensagem na conexão ${connectionId}:`,

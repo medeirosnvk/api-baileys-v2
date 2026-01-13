@@ -496,7 +496,7 @@ class StateMachine {
   }
 
   async _handleInitialState(
-    origin: string,
+    conectionId: string,
     phoneNumber: PhoneNumber
   ): Promise<void> {
     console.log("HANDLE INITIAL STATE");
@@ -512,15 +512,15 @@ class StateMachine {
     }
 
     const message = `Olá *${credor.nome}*,\n\nPor favor, escolha uma opção:\n\n*1)* Ver Dívidas\n*2)* Ver Acordos\n*3)* Linha Digitável\n*4)* Pix Copia e Cola`;
-    await this._postMessage(origin, message);
+    await this._postMessage(conectionId, message);
   }
 
   async _handleMenuState(
     origin: string,
     phoneNumber: PhoneNumber,
-    response: { body: string }
+    response: string
   ): Promise<void> {
-    const initialStateResponse = response.body.trim();
+    const initialStateResponse = response.trim();
     switch (initialStateResponse) {
       case "1":
         try {
@@ -609,7 +609,7 @@ class StateMachine {
   async _handleCredorState(
     origin: string,
     phoneNumber: PhoneNumber,
-    response: { body: string }
+    response: string
   ): Promise<void> {
     try {
       const credor = this._getCredor(phoneNumber);
@@ -624,7 +624,7 @@ class StateMachine {
         if (credorInfo.length === 1) {
           selectedCreditor = credorInfo[0];
         } else if (credorInfo.length > 1) {
-          const selectedOption = parseInt(response.body.trim());
+          const selectedOption = parseInt(response.trim());
           this._setDataCredores(phoneNumber, credorInfo);
 
           if (selectedOption >= 1 && selectedOption <= credorInfo.length) {
@@ -1077,7 +1077,7 @@ class StateMachine {
   async _handleBoletoState(
     origin: string,
     phoneNumber: PhoneNumber,
-    response: { body: string }
+    response: string
   ): Promise<void> {
     try {
       const credorData = await this.getCredorFromDB(phoneNumber);
@@ -1158,7 +1158,7 @@ class StateMachine {
   async _handlePixState(
     origin: string,
     phoneNumber: PhoneNumber,
-    response: { body: string }
+    response: string
   ): Promise<void> {
     try {
       const credorData = await this.getCredorFromDB(phoneNumber);
@@ -1243,55 +1243,48 @@ class StateMachine {
     }
   }
 
-  async handleMessage(
-    phoneNumber: PhoneNumber,
-    response: { from: string }
-  ): Promise<void> {
+  async handleMessage(response: any): Promise<void> {
     try {
+      const { connectionId, to, from, body } = response;
       console.log("HANDLE MESSAGE");
 
-      let { currentState } = this._getState(phoneNumber);
-      const origin = response.from;
+      let { currentState } = this._getState(from);
 
       if (!currentState) {
         currentState = "INICIO";
       }
 
       Logger.info(
-        `[Sessão: ${this.sessionName} - Número: ${phoneNumber} - Estado: ${currentState}]`
+        `[Sessão: ${this.sessionName} - Número: ${from} - Estado: ${currentState}]`
       );
 
       switch (currentState) {
         case "INICIO":
-          console.log("HANDLE MESSAGE - INICIO");
-
-          await this._handleInitialState(origin, phoneNumber);
-          this._setCurrentState(phoneNumber, "MENU");
+          await this._handleInitialState(connectionId, from);
+          this._setCurrentState(from, "MENU");
           break;
         case "MENU":
-          console.log("HANDLE MESSAGE - MENU");
-
-          await this._handleMenuState(origin, phoneNumber, response as any);
+          await this._handleMenuState(connectionId, from, body);
           break;
         case "CREDOR":
-          await this._handleCredorState(origin, phoneNumber, response as any);
-          this._setCurrentState(phoneNumber, "OFERTA");
+          await this._handleCredorState(connectionId, from, body);
+          this._setCurrentState(from, "OFERTA");
           break;
         case "OFERTA":
-          await this._handleOfertaState(origin, phoneNumber, response as any);
-          this._setCurrentState(phoneNumber, "INICIO");
+          await this._handleOfertaState(connectionId, from, body);
+          this._setCurrentState(from, "INICIO");
           break;
         case "VER_ACORDOS":
-          await this._handleAcordoState(origin, phoneNumber);
-          this._setCurrentState(phoneNumber, "INICIO");
+          await this._handleAcordoState(connectionId, from);
+          this._setCurrentState(from, "INICIO");
           break;
         case "VER_LINHA_DIGITAVEL":
-          await this._handleBoletoState(origin, phoneNumber, response as any);
-          this._setCurrentState(phoneNumber, "INICIO");
+          await this._handleBoletoState(connectionId, from, body);
+          this._setCurrentState(from, "INICIO");
           break;
         case "VER_CODIGO_PIX":
-          await this._handlePixState(origin, phoneNumber, response as any);
-          this._setCurrentState(phoneNumber, "INICIO");
+          await this._handlePixState(connectionId, from, body);
+          this._setCurrentState(from, "INICIO");
           break;
       }
     } catch (error) {
