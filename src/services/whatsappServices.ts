@@ -870,10 +870,6 @@ export class WhatsAppService {
 
         const demim = 0;
 
-        console.log("Ticket ID atribuído:", ticketId);
-        console.log("fromPhoneNumberFormat:", fromPhoneNumberFormat);
-        console.log("mePhoneNumberFormat:", mePhoneNumberFormat);
-
         stateMachine.setTicketId(ticketId);
         stateMachine.setFromNumber(fromPhoneNumberFormat);
         stateMachine.setToNumber(mePhoneNumberFormat);

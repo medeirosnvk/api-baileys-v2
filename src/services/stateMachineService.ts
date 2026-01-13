@@ -311,6 +311,9 @@ class StateMachine {
   ): Promise<void> {
     Logger.info(`Horário da mensagem ENVIADA ao cliente: ${new Date()}`);
 
+    console.log("Connection ID:", connectionId);
+    console.log("body postMessage:", body);
+
     const demim = 1;
 
     try {
