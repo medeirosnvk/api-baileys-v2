@@ -695,11 +695,11 @@ class StateMachine {
   async _handleOfertaState(
     origin: string,
     phoneNumber: PhoneNumber,
-    response: { body: string }
+    response: string
   ): Promise<void> {
     try {
-      if (response && response.body.trim().match(/^\d+$/)) {
-        const selectedOptionParcelamento = parseInt(response.body.trim());
+      if (response && response.trim().match(/^\d+$/)) {
+        const selectedOptionParcelamento = parseInt(response.trim());
 
         const credorByPhone = await requests.getCredorByPhoneNumber(
           phoneNumber
