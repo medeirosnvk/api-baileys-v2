@@ -1,6 +1,7 @@
 import requests from "../utils/requests.js";
 import fs from "fs";
 import fetch from "node-fetch";
+import path from "path";
 
 function getBrazilTimeFormatted(date: {
   getTime: () => number;
@@ -748,17 +749,26 @@ async function saveQRCodeImageToLocal(url: any, idboleto: any) {
 
     const response = await fetch(url);
 
-    // Verifica se a resposta está ok
     if (!response.ok) {
       throw new Error(
         `Erro ao baixar a imagem do QR Code. Status: ${response.status} - ${response.statusText}`
       );
     }
 
-    const buffer = await response.buffer();
-    fs.writeFileSync(`src/qrcodes/${idboleto}.png`, buffer);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    console.log("Imagem do QR Code salva localmente com sucesso.");
+    const dirPath = path.resolve("src/qrcodes");
+
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+
+    const filePath = path.join(dirPath, `${idboleto}.png`);
+
+    fs.writeFileSync(filePath, buffer);
+
+    console.log("Imagem do QR Code salva localmente com sucesso:", filePath);
   } catch (error) {
     console.error("Erro ao salvar imagem do QR Code localmente:", error);
   }
